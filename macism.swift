@@ -34,11 +34,21 @@ class InputSource: Equatable {
         if currentSource.id == self.id {
             return
         }
+        
         TISSelectInputSource(tisInputSource)
+        usleep(InputSourceManager.uSeconds)
+        
         if self.isCJKV {
             if let nonCJKV = InputSourceManager.nonCJKVSource() {
                 TISSelectInputSource(nonCJKV.tisInputSource)
-                InputSourceManager.selectPrevious()
+                usleep(InputSourceManager.uSeconds)
+                
+                let newCurrentSource = InputSourceManager.getCurrentSource()
+                if newCurrentSource.id == nonCJKV.id {
+                    InputSourceManager.selectPrevious()
+                } else {
+                    TISSelectInputSource(tisInputSource)
+                }
             }
         }
     }
@@ -46,7 +56,7 @@ class InputSource: Equatable {
 
 class InputSourceManager {
     static var inputSources: [InputSource] = []
-    static var uSeconds: UInt32 = 20000
+    static var uSeconds: UInt32 = 12000
     static var keyboardOnly: Bool = true
 
     static func initialize() {
