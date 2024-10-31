@@ -51,7 +51,7 @@ class KeyboardManager {
     var lastShiftPressTime: TimeInterval = 0
     
     // 添加属性来跟踪上一个输入法
-    private var lastInputSource: String?
+    private(set) var lastInputSource: String?
     private var isShiftPressed = false
     private var lastKeyDownTime: TimeInterval = 0  // 修改变量名使其更明确
     private var isKeyDown = false  // 添加新变量跟踪是否有按键被按下
@@ -70,8 +70,42 @@ class KeyboardManager {
         // 移除通知相关的初始化
     }
     
+    private func initializeInputSources() {
+        // 获取所有可用的输入源
+        guard let inputSources = TISCreateInputSourceList(nil, true)?.takeRetainedValue() as? [TISInputSource] else {
+            print("Failed to get input sources")
+            return
+        }
+        
+        // 过滤出键盘输入源
+        let keyboardSources = inputSources.filter { source in
+            guard let categoryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory),
+                  let category = Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as? String else {
+                return false
+            }
+            return category == kTISCategoryKeyboardInputSource as String
+        }
+        
+        // 找到第一个非 ABC 的中文输入法
+        for source in keyboardSources {
+            guard let sourceIdRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
+                  let sourceId = Unmanaged<CFString>.fromOpaque(sourceIdRef).takeUnretainedValue() as? String else {
+                continue
+            }
+            
+            if sourceId != abcInputSource {
+                lastInputSource = sourceId
+                print("Found Chinese input source: \(sourceId)")
+                break
+            }
+        }
+        
+        print("Initialized with input source: \(lastInputSource ?? "none")")
+    }
+    
     func start() {
         InputSourceManager.initialize()
+        initializeInputSources()  // 添加初始化调用
         setupEventTap()
     }
     
@@ -107,24 +141,24 @@ class KeyboardManager {
         }
         let currentSourceId = Unmanaged<CFString>.fromOpaque(currentSourceIdRef).takeUnretainedValue() as String
         
+        // 如果还没有找到中文输入法，尝试初始化
+        if lastInputSource == nil && currentSourceId != abcInputSource {
+            lastInputSource = currentSourceId
+        }
+        
         if let lastSource = lastInputSource {
             if currentSourceId == abcInputSource {
                 if let source = InputSourceManager.getInputSource(name: lastSource) {
                     TISSelectInputSource(source)
                 }
             } else {
-                lastInputSource = currentSourceId
                 if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
                     TISSelectInputSource(abcSource)
                 }
             }
         } else {
-            if currentSourceId != abcInputSource {
-                lastInputSource = currentSourceId
-                if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
-                    TISSelectInputSource(abcSource)
-                }
-            }
+            // 如果仍然没有找到中文输入法，重新初始化
+            initializeInputSources()
         }
     }
     
@@ -184,6 +218,11 @@ class KeyboardManager {
         if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
             TISSelectInputSource(abcSource)
         }
+    }
+    
+    func setLastInputSource(_ sourceId: String) {
+        lastInputSource = sourceId
+        print("Set last input source to: \(sourceId)")
     }
 }
 
@@ -290,7 +329,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         let alert = NSAlert()
         alert.messageText = "启用 Shift 切换前须知"
         alert.informativeText = """
-            1. 请先关闭输入法中的 Shift 切换中英文功能，否则可能会产生冲突。
+            1. 请先关��输入法中的 Shift 切换中英文功能，否则可能会产生冲突。
             2. 具体操作：打开输入法偏好设置 关闭"使用 Shift 切换中英文"选项
             3. 首次使用必须手动切换一次输入法，让程序知道需要切换的两个输入法是什么
             """
@@ -331,6 +370,33 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         
         newMenu.addItem(NSMenuItem.separator())
         
+        // 添加输入法选择子菜单
+        let inputMethodMenu = NSMenu()
+        let inputMethodItem = NSMenuItem(title: "选择中文输入法", action: nil, keyEquivalent: "")
+        inputMethodItem.submenu = inputMethodMenu
+        
+        // 获取所有输入法并添加到子菜单
+        if let inputMethods = getAvailableInputMethods() {
+            for (sourceId, name) in inputMethods {
+                let item = NSMenuItem(
+                    title: name,
+                    action: #selector(selectInputMethod(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.representedObject = sourceId  // 存储输入法 ID
+                // 如果是当前选中的输入法，显示勾选标记
+                if sourceId == KeyboardManager.shared.lastInputSource {
+                    item.state = .on
+                }
+                inputMethodMenu.addItem(item)
+            }
+        }
+        
+        newMenu.addItem(inputMethodItem)
+        newMenu.addItem(NSMenuItem.separator())
+        
+        // 添加 Shift 切换选项
         let shiftSwitchTitle = KeyboardManager.shared.useShiftSwitch ? 
             "关闭 Shift 切换输入法" : "启用 Shift 切换输入法"
         
@@ -349,6 +415,43 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         self.menu = newMenu
     }
     
+    // 获取可用的输入法列表
+    private func getAvailableInputMethods() -> [(String, String)]? {
+        guard let inputSources = TISCreateInputSourceList(nil, true)?.takeRetainedValue() as? [TISInputSource] else {
+            return nil
+        }
+        
+        var methods: [(String, String)] = []
+        
+        for source in inputSources {
+            // 获取输入法类别
+            guard let categoryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory),
+                  let category = Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as? String,
+                  category == kTISCategoryKeyboardInputSource as String else {
+                continue
+            }
+            
+            // 获取输入法 ID
+            guard let sourceIdRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
+                  let sourceId = Unmanaged<CFString>.fromOpaque(sourceIdRef).takeUnretainedValue() as? String else {
+                continue
+            }
+            
+            // 获取输入法名称
+            guard let nameRef = TISGetInputSourceProperty(source, kTISPropertyLocalizedName),
+                  let name = Unmanaged<CFString>.fromOpaque(nameRef).takeUnretainedValue() as? String else {
+                continue
+            }
+            
+            // 排除 ABC 输入法
+            if sourceId != KeyboardManager.shared.abcInputSource {
+                methods.append((sourceId, name))
+            }
+        }
+        
+        return methods
+    }
+    
     @objc private func toggleShiftSwitch() {
         KeyboardManager.shared.useShiftSwitch = !KeyboardManager.shared.useShiftSwitch
         updateStatusBarIcon()
@@ -359,6 +462,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         if let url = URL(string: "https://github.com/Jackiexiao/macvimswitch") {
             NSWorkspace.shared.open(url)
         }
+    }
+    
+    @objc private func selectInputMethod(_ sender: NSMenuItem) {
+        guard let sourceId = sender.representedObject as? String else { return }
+        KeyboardManager.shared.setLastInputSource(sourceId)  // 需要在 KeyboardManager 中添加这个方法
+        createAndShowMenu()  // 刷新菜单以更新勾选状态
     }
     
     // 实现代理方法
