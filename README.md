@@ -2,15 +2,56 @@
 
 [English](README.md) | [中文说明](README_CN.md)
 
-MacVimSwitch is a utility for macOS that automatically switches input sources, designed specifically for Vim users and those who frequently switch between input methods.
+MacVimSwitch is a utility for macOS that automatically switches input sources, designed specifically for Vim users and those who frequently switch between CJKV(Chinese/Japanese/Korean/Vietnamese) input methods.
 
 ## Features
 
 - Automatically switches to ABC input method when pressing ESC
 - Runs in the background with a status bar icon
-- Optional feature: Use Shift key to switch input methods, you need to manually switch the input method once before using it and disable the "Use Shift to switch between English and Chinese" option in the Chineseinput method settings
+- Built-in Shift key switching feature (enabled by default)
+  - Important: Before using, please disable the "Use Shift to switch between English and Chinese/Japanese/Korean/Vietnamese" option in your input method settings
+  - Can be disabled in the status bar menu if needed
 - Reminder about CapsLock behavior on Mac: short press to switch input method, long press for caps lock
 - Auto-starts on system login
+
+## Why MacVimSwitch?
+
+MacVimSwitch offers several advantages over other input source switching solutions:
+
+1. Universal Compatibility
+   - Works across all applications (VSCode, Terminal, Obsidian, Cursor, etc.)
+   - No need for application-specific configurations
+   - No plugins required for different editors
+
+2. Low Latency
+   - Minimal delay in input method switching
+   - Direct use of macOS APIs for better performance
+   - Efficient event handling
+
+3. Input Method Agnostic
+   - Works with any Chinese/Japanese/Korean/Vietnamese input method
+   - Supports popular input methods like Sogou, iFlytek, WeChat Input, etc.
+   - Easy to switch between different input methods
+
+4. Flexible Switching Options
+   - Use Shift key for quick switching (enabled by default)
+   - Or use CapsLock if you prefer (macOS built-in feature)
+   - ESC key always switches to ABC input method (perfect for Vim users)
+
+### Input Method Switching Options
+
+1. Using Shift (Default)
+   - Quick and convenient
+   - Similar to CapsLock behavior
+   - Can be disabled if not needed
+
+2. Using CapsLock (Built-in macOS Feature)
+   - System-level feature
+   - Short press to switch input methods
+   - Long press for caps lock
+   - Works alongside MacVimSwitch
+
+Choose the method that best suits your workflow!
 
 ## Installation
 
@@ -32,19 +73,20 @@ swiftc macvimswitch.swift -o macvimswitch
    - Go to System Preferences → Security & Privacy → Privacy → Accessibility
    - Add and enable macvimswitch
 
-2. Important setup before first use:
-   - Manually switch between your Chinese input method and ABC input method once
-   - This helps the system remember your Chinese input method and ensures the Shift switching feature works properly
+2. Important first-time setup:
+   - Disable the "Use Shift to switch between English and Chinese" option in your input method settings
+   - You can select your preferred Chinese input method from the status bar menu
 
 3. The app will automatically start on system login
 4. Click the keyboard icon in the status bar to:
    - View instructions
-   - Enable/Disable Shift key switching
+   - Select your preferred Chinese input method
+   - Enable/Disable Shift key switching (enabled by default)
    - Quit the application
 
 ## Important Notes
 
-1. If you enable the Shift key switching feature, make sure to disable the "Use Shift to switch between English and Chinese" option in your input method settings
+1. Make sure to disable the "Use Shift to switch between English and Chinese" option in your input method settings to avoid conflicts
 2. The app requires accessibility permissions to function properly
 3. A system restart might be required after granting permissions
 
