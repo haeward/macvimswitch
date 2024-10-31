@@ -1,82 +1,114 @@
-# MacOS Input Source Manager
+# MacVimSwitch
 
-This tool manages MacOS input source from command line, can be integrated with 
-`vim` and `emacs` (e.g.
-[emacs-smart-input-source](https://github.com/laishulu/emacs-smart-input-source)).
-It is based on the codes from [kawa](https://github.com/utatti/kawa).
+[English](README.md) | [中文说明](README_CN.md)
 
-`macism`'s main advantage over other similar tools is that it can reliably 
-select CJKV(Chinese/Japanese/Korean/Vietnamese) input source, while with other 
-tools (such as
-[input-source-switcher](https://github.com/vovkasm/input-source-switcher),
-[im-select from smartim](https://github.com/ybian/smartim),
-[swim](https://github.com/mitsuse/swim)), when you switch to CJKV input source,
-you will see that the input source icon has already changed in the menu bar, but
-unless you activate other applications and then switch back, you input source is
-actually still the same as before.
+MacVimSwitch is a utility for macOS that automatically switches input sources, designed specifically for Vim users and those who frequently switch between input methods.
 
-`macism` solve other tools' problem by reading the shortcut key for switching
-input sources from the system preference, and then emulate the triggering of the
-shortcut key.
+## Features
 
-## Install
+- Automatically switches to ABC input method when pressing ESC
+- Runs in the background with a status bar icon
+- Optional feature: Use Shift key to switch input methods
+- Reminder about CapsLock behavior on Mac: short press to switch input method, long press for caps lock
 
-You can get the executable in any of the following ways:
+## Installation
 
-- Install from brew
-    ```
-    brew tap laishulu/macism
-    brew install macism
-    ```
+```bash
+brew tap jackiexiao/tap      # Add the repository to Homebrew
+brew install macvimswitch    # Install MacVimSwitch
+```
 
-- compile by yourself
-    ```
-    git clone https://github.com/laishulu/macism
-    cd macism
-    swiftc macism.swift
-    ```
-- download the executable directly from 
-    [github](https://github.com/laishulu/macism/releases)
-    
+Or build from source:
+```bash
+git clone https://github.com/jackiexiao/macvimswitch
+cd macvimswitch
+swiftc macvimswitch.swift -o macvimswitch
+```
+
 ## Usage
 
-1. `macism` will output the current input source
-2. `macism SOME_INPUT_SOURCE_ID` will select to `SOME_INPUT_SOURCE_ID`.
-3. `macism SOME_INPUT_SOURCE_ID uSECONDS` will select to `SOME_INPUT_SOURCE_ID`. 
-  If switch from none-CJKV to CJKV, will sleep uSECONDS (default to 20000)
-  micro seconds.
-4. Add an extra option `--noKeyboardOnly` to command pattern *#2* and *#3* will 
-  also enable none-keyboard input sources.
+1. After installation, grant Accessibility permissions:
+   - Go to System Preferences → Security & Privacy → Privacy → Accessibility
+   - Add and enable macvimswitch
 
-## Must Read Note
+2. The app will automatically start on system login
+3. Click the keyboard icon in the status bar to:
+   - View instructions
+   - Quit the application
 
-### About Permission.
-The first time when you use `macism SOME_INPUT_SOURCE_ID` in your app (e.g. 
-Terminal.app/Emacs.app/iTerm2.app/Alacritty.app), MacOS will popup a window
-asking you to grant permission of Accessibility, you can also grant the 
-permission manually following the below instructions:
+## Important Notes
 
-- Apple menu  > System Preferences
-- click Privacy, click Accessibility
-- select your app's tickbox
+1. If you enable the Shift key switching feature, make sure to disable the "Use Shift to switch between English and Chinese" option in your input method settings
+2. The app requires accessibility permissions to function properly
+3. A system restart might be required after granting permissions
 
-see also https://support.apple.com/en-gb/guide/mac-help/mh43185/mac
+## For Developers
 
-Be sure to **restart** your app, or the permission will not take effect.
-  
-### About Keyboard Shortcut
+### How to Release
 
-You must enable the MacOS keyboard shortcut for "Select the previous input
-source", which can be found in "Preference -> Keyboard -> Shortcuts -> Input
-Source".
+1. Create GitHub Repository
+```bash
+# 1. Create a new repository at github.com/jackiexiao/macvimswitch
+# 2. Clone and initialize the repository
+git clone https://github.com/jackiexiao/macvimswitch.git
+cd macvimswitch
+```
 
-The shortcut can be anything as your wish, `macism` will read the shortcut from
-that entry and trigger it by emulation when needed. Just to make sure you have
-already enabled the shortcut.
+2. Prepare Release Files
+```bash
+# Add all necessary files
+git add macvimswitch.swift README.md README_CN.md LICENSE
+git commit -m "Initial commit"
+git push origin main
+```
 
-### About Delay
+3. Create Release
+```bash
+# Tag the release
+git tag v1.0.0
+git push origin v1.0.0
 
-When `macism` emulates the triggering of the shortcut key, it need a tiny 
-period time to take effect. The delay is totally acceptable for users, but you 
-can't retrive the new input resource immediately in a programmatical way without
-a delay.
+# On GitHub:
+# 1. Go to repository → Releases → Create a new release
+# 2. Choose the v1.0.0 tag
+# 3. Title: MacVimSwitch v1.0.0
+# 4. Generate release notes
+# 5. Publish release
+```
+
+4. Create Homebrew Tap
+```bash
+# 1. Create a new repository: github.com/jackiexiao/homebrew-tap
+# 2. Clone the repository
+git clone https://github.com/jackiexiao/homebrew-tap.git
+cd homebrew-tap
+
+# 3. Calculate SHA256 of the release tarball
+curl -L https://github.com/jackiexiao/macvimswitch/archive/v1.0.0.tar.gz | shasum -a 256
+
+# 4. Update the SHA256 in macvimswitch.rb
+# 5. Commit and push the formula
+git add macvimswitch.rb
+git commit -m "Add MacVimSwitch formula"
+git push origin main
+```
+
+### Development
+
+To build and test locally:
+```bash
+swiftc macvimswitch.swift -o macvimswitch
+./macvimswitch
+```
+
+### Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
