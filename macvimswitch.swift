@@ -329,7 +329,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         let alert = NSAlert()
         alert.messageText = "启用 Shift 切换前须知"
         alert.informativeText = """
-            1. 请先关��输入法中的 Shift 切换中英文功能，否则可能会产生冲突。
+            1. 请先关输入法中的 Shift 切换中英文功能，否则可能会产生冲突。
             2. 具体操作：打开输入法偏好设置 关闭"使用 Shift 切换中英文"选项
             3. 首次使用必须手动切换一次输入法，让程序知道需要切换的两个输入法是什么
             """
@@ -422,12 +422,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         }
         
         var methods: [(String, String)] = []
+        var seenNames = Set<String>()  // 用于追踪已经添加的输入法名称
         
         for source in inputSources {
             // 获取输入法类别
             guard let categoryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory),
                   let category = Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as? String,
                   category == kTISCategoryKeyboardInputSource as String else {
+                continue
+            }
+            
+            // 检查输入法是否启用
+            guard let enabledRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsEnabled),
+                  let enabled = Unmanaged<CFBoolean>.fromOpaque(enabledRef).takeUnretainedValue() as? Bool,
+                  enabled else {
+                continue
+            }
+            
+            // 检查是否是主要输入源
+            guard let isPrimaryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsSelectCapable),
+                  let isPrimary = Unmanaged<CFBoolean>.fromOpaque(isPrimaryRef).takeUnretainedValue() as? Bool,
+                  isPrimary else {
                 continue
             }
             
@@ -443,13 +458,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
                 continue
             }
             
-            // 排除 ABC 输入法
-            if sourceId != KeyboardManager.shared.abcInputSource {
+            // 排除 ABC 输入法和已经添加过的输入法名称
+            if sourceId != KeyboardManager.shared.abcInputSource && !seenNames.contains(name) {
                 methods.append((sourceId, name))
+                seenNames.insert(name)
             }
         }
         
-        return methods
+        // 按名称排序
+        return methods.sorted { $0.1 < $1.1 }
     }
     
     @objc private func toggleShiftSwitch() {
