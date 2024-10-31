@@ -43,7 +43,7 @@ class KeyboardManager {
     weak var delegate: KeyboardManagerDelegate?  // 添加代理属性
     private var eventTap: CFMachPort?
     let abcInputSource = "com.apple.keylayout.ABC"
-    var useShiftSwitch: Bool = false {
+    var useShiftSwitch: Bool = true {
         didSet {
             delegate?.keyboardManagerDidUpdateState()  // 移除日志，保留代理通知
         }
@@ -249,7 +249,7 @@ private func eventCallback(
         
     case .flagsChanged:
         let flags = event.flags
-        print("Flag changed event: \(flags.rawValue)")
+        // print("Flag changed event: \(flags.rawValue)")
         manager.handleModifierFlags(flags)
         
     default:
@@ -298,30 +298,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         let alert = NSAlert()
         alert.messageText = "MacVimSwitch 使用说明"
         alert.informativeText = """
+            重要提示：
+            1. 请先关闭输入法中的"使用 Shift 切换中英文"选项，否则会产生冲突
+            2. 具体操作：打开输入法偏好设置 → 关闭"使用 Shift 切换中英文"
+            
+            功能说明：
             1. 按 ESC 键会自动切换到英文输入法 ABC
-            2. 提示：在 Mac 上，CapsLock 短按可以切换输入法，长按才是锁定大写
-            3. 可选功能：使用 Shift 切换输入法（默认关闭）
+            2. 按 Shift 键可以在中英文输入法之间切换（可在菜单栏中关闭）
+            3. 提示：在 Mac 上，CapsLock 短按可以切换输入法，长按才是锁定大写
             """
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "确定")
-        alert.addButton(withTitle: "启用 Shift 切换")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "我已了解")
         
         DispatchQueue.main.async {
-            // 创建一个新窗口并设置级别
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
                 styleMask: [.titled],
                 backing: .buffered,
                 defer: false
             )
-            window.level = .floating  // 设置窗口级别为浮动
+            window.level = .floating
             
-            // 运行警告框并确保它显示在最前面
             NSApp.activate(ignoringOtherApps: true)
-            let response = alert.runModal()
-            if response == .alertSecondButtonReturn {
-                self.enableShiftSwitch()
-            }
+            alert.runModal()
         }
     }
     
@@ -384,8 +383,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
                     keyEquivalent: ""
                 )
                 item.target = self
-                item.representedObject = sourceId  // 存储输入法 ID
-                // 如果是当前选中的输入法，显示勾选标记
+                item.representedObject = sourceId
                 if sourceId == KeyboardManager.shared.lastInputSource {
                     item.state = .on
                 }
@@ -396,16 +394,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         newMenu.addItem(inputMethodItem)
         newMenu.addItem(NSMenuItem.separator())
         
-        // 添加 Shift 切换选项
-        let shiftSwitchTitle = KeyboardManager.shared.useShiftSwitch ? 
-            "关闭 Shift 切换输入法" : "启用 Shift 切换输入法"
-        
+        // 修改 Shift 切换选项的文字
         let shiftSwitchItem = NSMenuItem(
-            title: shiftSwitchTitle,
+            title: "使用 Shift 切换输入法",
             action: #selector(toggleShiftSwitch),
             keyEquivalent: ""
         )
         shiftSwitchItem.target = self
+        shiftSwitchItem.state = KeyboardManager.shared.useShiftSwitch ? .on : .off
         newMenu.addItem(shiftSwitchItem)
         
         newMenu.addItem(NSMenuItem.separator())
