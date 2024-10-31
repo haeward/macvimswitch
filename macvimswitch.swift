@@ -33,11 +33,22 @@ class InputSourceManager {
     }
 }
 
+// 添加代理协议
+protocol KeyboardManagerDelegate: AnyObject {
+    func keyboardManagerDidUpdateState()
+}
+
 class KeyboardManager {
     static let shared = KeyboardManager()
+    weak var delegate: KeyboardManagerDelegate?  // 添加代理属性
     private var eventTap: CFMachPort?
     let abcInputSource = "com.apple.keylayout.ABC"
-    var useShiftSwitch = false
+    var useShiftSwitch: Bool = false {
+        didSet {
+            print("useShiftSwitch changed from \(oldValue) to \(useShiftSwitch)")
+            delegate?.keyboardManagerDidUpdateState()  // 通知代理状态更新
+        }
+    }
     var lastShiftPressTime: TimeInterval = 0
     
     // 添加属性来跟踪上一个输入法
@@ -56,7 +67,9 @@ class KeyboardManager {
     private var shiftPressStartTime: TimeInterval = 0  // 记录 Shift 按下的开始时间
     private var hasOtherKeysDuringShift = false       // 记录 Shift 按下期间是否有其他键按下
     
-    private init() {}
+    private init() {
+        // 移除通知相关的初始化
+    }
     
     func start() {
         InputSourceManager.initialize()
@@ -78,9 +91,11 @@ class KeyboardManager {
         alert.addButton(withTitle: "确定")
         alert.addButton(withTitle: "启用 Shift 切换")
         
-        let response = alert.runModal()
-        if response == .alertSecondButtonReturn {
-            enableShiftSwitch()
+        DispatchQueue.main.async {
+            let response = alert.runModal()
+            if response == .alertSecondButtonReturn {
+                self.enableShiftSwitch()
+            }
         }
     }
     
@@ -88,7 +103,7 @@ class KeyboardManager {
         let alert = NSAlert()
         alert.messageText = "启用 Shift 切换前须知"
         alert.informativeText = """
-            请先关闭输入法中的 Shift 切换中英文功能，否则可能会��生冲突。
+            请先关闭输入法中的 Shift 切换中英文功能，否则可能会产生冲突。
             
             操作步骤：
             1. 打开输入法偏好设置
@@ -97,7 +112,7 @@ class KeyboardManager {
         alert.alertStyle = .warning
         alert.runModal()
         
-        useShiftSwitch = true
+        useShiftSwitch = true  // 这会触发代理方法
     }
     
     private func setupEventTap() {
@@ -166,32 +181,38 @@ class KeyboardManager {
     func handleModifierFlags(_ flags: CGEventFlags) {
         let currentTime = Date().timeIntervalSince1970
         
-        // 检查是否按下了 Shift 键
-        let isShiftDown = flags.rawValue == 0x20102  // Shift 按下的标志值
-        
         print("""
             Flag event analysis:
             - Raw flags value: \(String(format: "0x%X", flags.rawValue))
-            - Is Shift down: \(isShiftDown)
             - Has other keys: \(hasOtherKeysDuringShift)
+            - Is Shift pressed: \(isShiftPressed)
+            - useShiftSwitch enabled: \(useShiftSwitch)
             """)
         
-        if isShiftDown {
-            // Shift 刚被按下
+        // 检查是否是 Shift 按下事件（0x20102）或释放事件（0x100）
+        if flags.rawValue == 0x20102 {  // Shift 按下
             if !isShiftPressed {
                 isShiftPressed = true
                 shiftPressStartTime = currentTime
-                hasOtherKeysDuringShift = false  // 重置标志
-                print("Shift press started")
+                hasOtherKeysDuringShift = false
+                print("Shift key pressed down")
             }
         } else if flags.rawValue == 0x100 {  // Shift 释放
-            // 只有在 Shift 期间没有其他键被按下时才触发切换
-            if isShiftPressed && !hasOtherKeysDuringShift && useShiftSwitch {
+            if isShiftPressed {
                 let pressDuration = currentTime - shiftPressStartTime
-                // 确保按下时间不太长（避免长按）
-                if pressDuration < 0.5 {
-                    print("Triggering input source switch")
+                print("Shift key released, duration: \(pressDuration), hasOtherKeys: \(hasOtherKeysDuringShift)")
+                
+                // 只有在启用了 Shift 切换，且没有其他键被按下，且按下时间不太长时才触发切换
+                if useShiftSwitch && !hasOtherKeysDuringShift && pressDuration < 0.5 {
+                    print("Conditions met, triggering input source switch")
                     switchInputMethod()
+                } else {
+                    print("""
+                        Switch not triggered because:
+                        - Shift switch enabled: \(useShiftSwitch)
+                        - No other keys: \(!hasOtherKeysDuringShift)
+                        - Press duration OK: \(pressDuration < 0.5)
+                        """)
                 }
             }
             isShiftPressed = false
@@ -222,10 +243,12 @@ class KeyboardManager {
     
     // 修改键盘事件记录方法
     func handleKeyDown(_ down: Bool) {
-        if down && isShiftPressed {
-            // 如果在 Shift 按下期间有其他键被按下
-            hasOtherKeysDuringShift = true
-            print("Other key pressed during Shift")
+        if down {
+            if isShiftPressed {
+                // 如果在 Shift 按下期间有其他键被按下
+                hasOtherKeysDuringShift = true
+                print("Other key pressed while Shift is down")
+            }
         }
     }
     
@@ -280,78 +303,146 @@ let delegate = AppDelegate()
 app.delegate = delegate
 app.run()
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private var menu: NSMenu?  // 添加菜单属性
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 设置代理
+        KeyboardManager.shared.delegate = self
+        
+        // 先设置状态栏
         setupStatusBarItem()
+        // 然后启动键盘管理器
         KeyboardManager.shared.start()
+        
+        // 显示初始使用提示
+        showInitialInstructions()
     }
     
     private func setupStatusBarItem() {
         if let button = statusItem.button {
             updateStatusBarIcon()
-            button.target = self
-            button.action = #selector(showMenu)
-            // 确保按钮可以点击
+            
+            // 直接设置菜单，而不是使用 action
+            createAndShowMenu()
+            
+            // 确保按钮可用
             button.isEnabled = true
         }
     }
     
-    // 添加新方法：更新状态栏图标
+    private func showInitialInstructions() {
+        let alert = NSAlert()
+        alert.messageText = "MacVimSwitch 使用说明"
+        alert.informativeText = """
+            1. 按 ESC 键会自动切换到英文输入法
+            2. 提示：在 Mac 上，CapsLock 短按可以切换输入法，长按才是锁定大写
+            3. 可选功能：使用 Shift 切换输入法（默认关闭）
+            
+            注意：程序需要辅助功能权限才能正常工作。
+            """
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "确定")
+        alert.addButton(withTitle: "启用 Shift 切换")
+        
+        DispatchQueue.main.async {
+            let response = alert.runModal()
+            if response == .alertSecondButtonReturn {
+                self.enableShiftSwitch()
+            }
+        }
+    }
+    
+    private func enableShiftSwitch() {
+        let alert = NSAlert()
+        alert.messageText = "启用 Shift 切换前须知"
+        alert.informativeText = """
+            请先关闭输入法中的 Shift 切换中英文功能，否则可能会产生冲突。
+            
+            操作步骤：
+            1. 打开输入法偏好设置
+            2. 关闭"使用 Shift 切换中英文"选项
+            """
+        alert.alertStyle = .warning
+        alert.runModal()
+        
+        KeyboardManager.shared.useShiftSwitch = true
+        updateStatusBarIcon()
+        createAndShowMenu()
+    }
+    
     private func updateStatusBarIcon() {
-        guard let button = statusItem.button else { return }
+        guard let button = statusItem.button else {
+            print("Status item button not found")
+            return
+        }
         
         if KeyboardManager.shared.useShiftSwitch {
-            // Shift 开启时显示带标记的键盘图标
             button.image = NSImage(systemSymbolName: "keyboard.badge.ellipsis", accessibilityDescription: "MacVimSwitch (Shift Enabled)")
         } else {
-            // Shift 关闭时显示普通键盘图标
             button.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "MacVimSwitch")
         }
         
-        // 强制刷新菜单
-        showMenu()
+        // 确保按钮可用
+        button.isEnabled = true
     }
     
-    @objc private func showMenu() {
-        let menu = NSMenu()
+    private func createAndShowMenu() {
+        print("Creating menu, current shift switch state: \(KeyboardManager.shared.useShiftSwitch)")
+        
+        let newMenu = NSMenu()
         
         // 添加使用说明菜单项
-        menu.addItem(NSMenuItem(title: "使用说明", action: #selector(showInstructions), keyEquivalent: ""))
+        newMenu.addItem(NSMenuItem(title: "使用说明", action: #selector(showInstructions), keyEquivalent: ""))
+        newMenu.addItem(NSMenuItem.separator())
         
-        menu.addItem(NSMenuItem.separator())
+        // 根据当前状态显示不同的菜单项文字
+        let shiftSwitchTitle = KeyboardManager.shared.useShiftSwitch ? 
+            "关闭 Shift 切换输入法" : "启用 Shift 切换输入法"
         
-        // 简化菜单项，只显示固定文字和勾选状态
         let shiftSwitchItem = NSMenuItem(
-            title: "使用 Shift 切换输入法",
+            title: shiftSwitchTitle,
             action: #selector(toggleShiftSwitch),
             keyEquivalent: ""
         )
-        // 确保勾选状态与 useShiftSwitch 一致
-        shiftSwitchItem.state = KeyboardManager.shared.useShiftSwitch ? .on : .off
-        menu.addItem(shiftSwitchItem)
+        shiftSwitchItem.target = self
+        newMenu.addItem(shiftSwitchItem)
         
-        menu.addItem(NSMenuItem.separator())
+        newMenu.addItem(NSMenuItem.separator())
+        newMenu.addItem(NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         
-        menu.addItem(NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        
-        statusItem.menu = menu
+        // 设置菜单
+        statusItem.menu = newMenu
+        self.menu = newMenu
     }
     
     @objc private func toggleShiftSwitch() {
-        // 简化切换逻辑，移除提示窗口
+        print("Toggle shift switch called, current state: \(KeyboardManager.shared.useShiftSwitch)")
+        
+        // 切换状态
         KeyboardManager.shared.useShiftSwitch = !KeyboardManager.shared.useShiftSwitch
         
-        // 更新状态栏图标和菜单
+        print("State after toggle: \(KeyboardManager.shared.useShiftSwitch)")
+        
+        // 更新状态栏图标
         updateStatusBarIcon()
         
-        // 如果开启了 Shift 切换，显示一个简单的通知
+        // 使用 NSAlert 替代通知
         if KeyboardManager.shared.useShiftSwitch {
-            let notification = NSUserNotification()
-            notification.title = "Shift 切换已启用"
-            notification.informativeText = "请确保已关闭输入法中的 Shift 切换中英文选项"
-            NSUserNotificationCenter.default.deliver(notification)
+            DispatchQueue.main.async { [weak self] in
+                let alert = NSAlert()
+                alert.messageText = "Shift 切换已启用"
+                alert.informativeText = "请确保已关闭输入法中的 Shift 切换中英文选项"
+                alert.alertStyle = .informational
+                alert.runModal()
+                
+                // 确保警告框关闭后重新创建菜单
+                self?.createAndShowMenu()
+            }
+        } else {
+            // 如果是关闭操作，直接重新创建菜单
+            createAndShowMenu()
         }
     }
     
@@ -364,5 +455,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             3. 如果启用了 Shift 切换功能，请确保已关闭输入法的 Shift 切换设置
             """
         alert.runModal()
+    }
+    
+    // 实现代理方法
+    func keyboardManagerDidUpdateState() {
+        updateStatusBarIcon()
+        createAndShowMenu()
     }
 } 
