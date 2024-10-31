@@ -32,9 +32,14 @@ swiftc macvimswitch.swift -o macvimswitch
    - Go to System Preferences → Security & Privacy → Privacy → Accessibility
    - Add and enable macvimswitch
 
-2. The app will automatically start on system login
-3. Click the keyboard icon in the status bar to:
+2. Important setup before first use:
+   - Manually switch between your Chinese input method and ABC input method once
+   - This helps the system remember your Chinese input method and ensures the Shift switching feature works properly
+
+3. The app will automatically start on system login
+4. Click the keyboard icon in the status bar to:
    - View instructions
+   - Enable/Disable Shift key switching
    - Quit the application
 
 ## Important Notes
