@@ -308,6 +308,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         alert.addButton(withTitle: "启用 Shift 切换")
         
         DispatchQueue.main.async {
+            // 创建一个新窗口并设置级别
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: false
+            )
+            window.level = .floating  // 设置窗口级别为浮动
+            
+            // 运行警告框并确保它显示在最前面
+            NSApp.activate(ignoringOtherApps: true)
             let response = alert.runModal()
             if response == .alertSecondButtonReturn {
                 self.enableShiftSwitch()
@@ -326,7 +337,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
             2. 关闭"使用 Shift 切换中英文"选项
             """
         alert.alertStyle = .warning
-        alert.runModal()
+        
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)  // 激活应用并将其置于最前
+            alert.runModal()
+        }
         
         KeyboardManager.shared.useShiftSwitch = true
         updateStatusBarIcon()
@@ -395,22 +410,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         // 更新状态栏图标
         updateStatusBarIcon()
         
-        // 使用 NSAlert 替代通知
-        if KeyboardManager.shared.useShiftSwitch {
-            DispatchQueue.main.async { [weak self] in
-                let alert = NSAlert()
-                alert.messageText = "Shift 切换已启用"
-                alert.informativeText = "请确保已关闭输入法中的 Shift 切换中英文选项"
-                alert.alertStyle = .informational
-                alert.runModal()
-                
-                // 确保警告框关闭后重新创建菜单
-                self?.createAndShowMenu()
-            }
-        } else {
-            // 如果是关闭操作，直接重新创建菜单
-            createAndShowMenu()
-        }
+        // 直接更新菜单，不显示提示窗口
+        createAndShowMenu()
     }
     
     @objc private func showInstructions() {
@@ -421,7 +422,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
             2. CapsLock 短按可以切换输入法，长按才是锁定大写
             3. 如果启用了 Shift 切换功能，请确保已关闭输入法的 Shift 切换设置
             """
-        alert.runModal()
+        
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)  // 激活应用并将其置于最前
+            alert.runModal()
+        }
     }
     
     @objc private func openHomepage() {
