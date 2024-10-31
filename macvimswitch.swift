@@ -369,8 +369,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         
         let newMenu = NSMenu()
         
-        // 添加使用说明菜单项
-        newMenu.addItem(NSMenuItem(title: "使用说明", action: #selector(showInstructions), keyEquivalent: ""))
+        // 将"使用说明"改为直接跳转到项目主页
+        let homepageItem = NSMenuItem(title: "使用说明", action: #selector(openHomepage), keyEquivalent: "")
+        homepageItem.target = self
+        newMenu.addItem(homepageItem)
+        
         newMenu.addItem(NSMenuItem.separator())
         
         // 根据当前状态显示不同的菜单项文字
@@ -384,12 +387,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         )
         shiftSwitchItem.target = self
         newMenu.addItem(shiftSwitchItem)
-        
-        // 添加项目主页菜单项
-        newMenu.addItem(NSMenuItem.separator())
-        let homepageItem = NSMenuItem(title: "访问项目主页", action: #selector(openHomepage), keyEquivalent: "")
-        homepageItem.target = self
-        newMenu.addItem(homepageItem)
         
         newMenu.addItem(NSMenuItem.separator())
         newMenu.addItem(NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -412,21 +409,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         
         // 直接更新菜单，不显示提示窗口
         createAndShowMenu()
-    }
-    
-    @objc private func showInstructions() {
-        let alert = NSAlert()
-        alert.messageText = "使用说明"
-        alert.informativeText = """
-            1. 按 ESC 键会自动切换到英文输入法
-            2. CapsLock 短按可以切换输入法，长按才是锁定大写
-            3. 如果启用了 Shift 切换功能，请确保已关闭输入法的 Shift 切换设置
-            """
-        
-        DispatchQueue.main.async {
-            NSApp.activate(ignoringOtherApps: true)  // 激活应用并将其置于最前
-            alert.runModal()
-        }
     }
     
     @objc private func openHomepage() {
