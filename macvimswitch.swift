@@ -45,8 +45,7 @@ class KeyboardManager {
     let abcInputSource = "com.apple.keylayout.ABC"
     var useShiftSwitch: Bool = false {
         didSet {
-            print("useShiftSwitch changed from \(oldValue) to \(useShiftSwitch)")
-            delegate?.keyboardManagerDidUpdateState()  // 通知代理状态更新
+            delegate?.keyboardManagerDidUpdateState()  // 移除日志，保留代理通知
         }
     }
     var lastShiftPressTime: TimeInterval = 0
@@ -101,37 +100,28 @@ class KeyboardManager {
     }
     
     func switchInputMethod() {
-        print("Attempting to switch input method")
         let currentSource = InputSourceManager.getCurrentSource()
         
         guard let currentSourceIdRef = TISGetInputSourceProperty(currentSource, kTISPropertyInputSourceID) else {
-            print("Failed to get current source ID")
             return
         }
         let currentSourceId = Unmanaged<CFString>.fromOpaque(currentSourceIdRef).takeUnretainedValue() as String
-        print("Current input source: \(currentSourceId)")
         
         if let lastSource = lastInputSource {
-            // 如果当前是 ABC，切换到上一个输入法
             if currentSourceId == abcInputSource {
-                print("Switching to last input method: \(lastSource)")
                 if let source = InputSourceManager.getInputSource(name: lastSource) {
                     TISSelectInputSource(source)
                 }
             } else {
-                // 如果当前不是 ABC，切换到 ABC，并记住当前输入法
                 lastInputSource = currentSourceId
                 if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
-                    print("Switching to ABC input method")
                     TISSelectInputSource(abcSource)
                 }
             }
         } else {
-            // 如果没有上一个输入法记录，记录当前输入法并切换到 ABC
             if currentSourceId != abcInputSource {
                 lastInputSource = currentSourceId
                 if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
-                    print("Switching to ABC input method (first time)")
                     TISSelectInputSource(abcSource)
                 }
             }
@@ -142,38 +132,18 @@ class KeyboardManager {
     func handleModifierFlags(_ flags: CGEventFlags) {
         let currentTime = Date().timeIntervalSince1970
         
-        print("""
-            Flag event analysis:
-            - Raw flags value: \(String(format: "0x%X", flags.rawValue))
-            - Has other keys: \(hasOtherKeysDuringShift)
-            - Is Shift pressed: \(isShiftPressed)
-            - useShiftSwitch enabled: \(useShiftSwitch)
-            """)
-        
-        // 检查是否是 Shift 按下事件（0x20102）或释放事件（0x100）
         if flags.rawValue == 0x20102 {  // Shift 按下
             if !isShiftPressed {
                 isShiftPressed = true
                 shiftPressStartTime = currentTime
                 hasOtherKeysDuringShift = false
-                print("Shift key pressed down")
             }
         } else if flags.rawValue == 0x100 {  // Shift 释放
             if isShiftPressed {
                 let pressDuration = currentTime - shiftPressStartTime
-                print("Shift key released, duration: \(pressDuration), hasOtherKeys: \(hasOtherKeysDuringShift)")
                 
-                // 只有在启用了 Shift 切换，且没有其他键被按下，且按下时间不太长时才触发切换
                 if useShiftSwitch && !hasOtherKeysDuringShift && pressDuration < 0.5 {
-                    print("Conditions met, triggering input source switch")
                     switchInputMethod()
-                } else {
-                    print("""
-                        Switch not triggered because:
-                        - Shift switch enabled: \(useShiftSwitch)
-                        - No other keys: \(!hasOtherKeysDuringShift)
-                        - Press duration OK: \(pressDuration < 0.5)
-                        """)
                 }
             }
             isShiftPressed = false
@@ -204,23 +174,15 @@ class KeyboardManager {
     
     // 修改键盘事件记录方法
     func handleKeyDown(_ down: Bool) {
-        if down {
-            if isShiftPressed {
-                // 如果在 Shift 按下期间有其他键被按下
-                hasOtherKeysDuringShift = true
-                print("Other key pressed while Shift is down")
-            }
+        if down && isShiftPressed {
+            hasOtherKeysDuringShift = true
         }
     }
     
     // 添加新方法：专门用于ESC键的切换
     func switchToABC() {
-        print("Switching to ABC input method")
         if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
             TISSelectInputSource(abcSource)
-            print("Successfully switched to ABC input method")
-        } else {
-            print("Failed to get ABC input source")
         }
     }
 }
@@ -297,11 +259,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         let alert = NSAlert()
         alert.messageText = "MacVimSwitch 使用说明"
         alert.informativeText = """
-            1. 按 ESC 键会自动切换到英文输入法
+            1. 按 ESC 键会自动切换到英文输入法 ABC
             2. 提示：在 Mac 上，CapsLock 短按可以切换输入法，长按才是锁定大写
             3. 可选功能：使用 Shift 切换输入法（默认关闭）
-            
-            注意：程序需要辅助功能权限才能正常工作。
             """
         alert.alertStyle = .informational
         alert.addButton(withTitle: "确定")
@@ -330,11 +290,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         let alert = NSAlert()
         alert.messageText = "启用 Shift 切换前须知"
         alert.informativeText = """
-            请先关闭输入法中的 Shift 切换中英文功能，否则可能会产生冲突。
-            
-            操作步骤：
-            1. 打开输入法偏好设置
-            2. 关闭"使用 Shift 切换中英文"选项
+            1. 请先关闭输入法中的 Shift 切换中英文功能，否则可能会产生冲突。
+            2. 具体操作：打开输入法偏好设置 关闭"使用 Shift 切换中英文"选项
+            3. 首次使用必须手动切换一次输入法，让程序知道需要切换的两个输入法是什么
             """
         alert.alertStyle = .warning
         
@@ -365,18 +323,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
     }
     
     private func createAndShowMenu() {
-        print("Creating menu, current shift switch state: \(KeyboardManager.shared.useShiftSwitch)")
-        
         let newMenu = NSMenu()
         
-        // 将"使用说明"改为直接跳转到项目主页
         let homepageItem = NSMenuItem(title: "使用说明", action: #selector(openHomepage), keyEquivalent: "")
         homepageItem.target = self
         newMenu.addItem(homepageItem)
         
         newMenu.addItem(NSMenuItem.separator())
         
-        // 根据当前状态显示不同的菜单项文字
         let shiftSwitchTitle = KeyboardManager.shared.useShiftSwitch ? 
             "关闭 Shift 切换输入法" : "启用 Shift 切换输入法"
         
@@ -391,23 +345,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         newMenu.addItem(NSMenuItem.separator())
         newMenu.addItem(NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         
-        // 设置菜单
         statusItem.menu = newMenu
         self.menu = newMenu
     }
     
     @objc private func toggleShiftSwitch() {
-        print("Toggle shift switch called, current state: \(KeyboardManager.shared.useShiftSwitch)")
-        
-        // 切换状态
         KeyboardManager.shared.useShiftSwitch = !KeyboardManager.shared.useShiftSwitch
-        
-        print("State after toggle: \(KeyboardManager.shared.useShiftSwitch)")
-        
-        // 更新状态栏图标
         updateStatusBarIcon()
-        
-        // 直接更新菜单，不显示提示窗口
         createAndShowMenu()
     }
     
