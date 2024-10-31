@@ -8,7 +8,7 @@ MacVimSwitch is a utility for macOS that automatically switches input sources, d
 
 - Automatically switches to ABC input method when pressing ESC
 - Runs in the background with a status bar icon
-- Optional feature: Use Shift key to switch input methods
+- Optional feature: Use Shift key to switch input methods, you need to manually switch the input method once before using it and disable the "Use Shift to switch between English and Chinese" option in the Chineseinput method settings
 - Reminder about CapsLock behavior on Mac: short press to switch input method, long press for caps lock
 - Auto-starts on system login
 
