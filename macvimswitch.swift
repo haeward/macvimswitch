@@ -74,45 +74,6 @@ class KeyboardManager {
     func start() {
         InputSourceManager.initialize()
         setupEventTap()
-        showInitialInstructions()
-    }
-    
-    private func showInitialInstructions() {
-        let alert = NSAlert()
-        alert.messageText = "MacVimSwitch 使用说明"
-        alert.informativeText = """
-            1. 按 ESC 键会自动切换到英文输入法
-            2. 提示：在 Mac 上，CapsLock 短按可以切换输入法，长按才是锁定大写
-            3. 可选功能：使用 Shift 切换输入法（默认关闭）
-            
-            注意：程序需要辅助功能权限才能正常工作。
-            """
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "确定")
-        alert.addButton(withTitle: "启用 Shift 切换")
-        
-        DispatchQueue.main.async {
-            let response = alert.runModal()
-            if response == .alertSecondButtonReturn {
-                self.enableShiftSwitch()
-            }
-        }
-    }
-    
-    private func enableShiftSwitch() {
-        let alert = NSAlert()
-        alert.messageText = "启用 Shift 切换前须知"
-        alert.informativeText = """
-            请先关闭输入法中的 Shift 切换中英文功能，否则可能会产生冲突。
-            
-            操作步骤：
-            1. 打开输入法偏好设置
-            2. 关闭"使用 Shift 切换中英文"选项
-            """
-        alert.alertStyle = .warning
-        alert.runModal()
-        
-        useShiftSwitch = true  // 这会触发代理方法
     }
     
     private func setupEventTap() {
@@ -409,6 +370,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         shiftSwitchItem.target = self
         newMenu.addItem(shiftSwitchItem)
         
+        // 添加项目主页菜单项
+        newMenu.addItem(NSMenuItem.separator())
+        let homepageItem = NSMenuItem(title: "访问项目主页", action: #selector(openHomepage), keyEquivalent: "")
+        homepageItem.target = self
+        newMenu.addItem(homepageItem)
+        
         newMenu.addItem(NSMenuItem.separator())
         newMenu.addItem(NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         
@@ -455,6 +422,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
             3. 如果启用了 Shift 切换功能，请确保已关闭输入法的 Shift 切换设置
             """
         alert.runModal()
+    }
+    
+    @objc private func openHomepage() {
+        if let url = URL(string: "https://github.com/Jackiexiao/macvimswitch") {
+            NSWorkspace.shared.open(url)
+        }
     }
     
     // 实现代理方法

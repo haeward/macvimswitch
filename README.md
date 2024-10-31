@@ -10,6 +10,7 @@ MacVimSwitch is a utility for macOS that automatically switches input sources, d
 - Runs in the background with a status bar icon
 - Optional feature: Use Shift key to switch input methods
 - Reminder about CapsLock behavior on Mac: short press to switch input method, long press for caps lock
+- Auto-starts on system login
 
 ## Installation
 
