@@ -185,3 +185,34 @@ act push -t refs/tags/v1.0.0
 - 手动触发时，确保代码和所需文件都已经推送到仓库
 - 本地测试时，确保已安装所有必要的依赖
 - 对于涉及 secrets 的步骤，需要在仓库设置中配置相应的 secrets
+
+# homebrew tap 更新
+看起来您遇到了 Homebrew tap 缓存的问题。要强制 Homebrew 更新 tap 的内容，您可以尝试以下步骤：
+
+1. 首先移除现有的 tap：
+```bash
+brew untap jackiexiao/tap
+```
+
+2. 然后重新添加 tap：
+```bash
+brew tap jackiexiao/tap
+```
+
+3. 最后重新安装：
+```bash
+brew install macvimswitch
+```
+
+如果还是没有更新，您也可以尝试：
+```bash
+brew update
+brew upgrade macvimswitch
+```
+
+另外，您也可以使用 `brew tap-new` 来强制刷新：
+```bash
+brew tap-new jackiexiao/tap
+```
+
+这些命令应该能帮助您获取到最新的 formula 定义。如果问题仍然存在，您可以检查一下 `HOMEBREW_TAP_DIR` 下的内容（通常在 `/usr/local/Homebrew/Library/Taps/jackiexiao/homebrew-tap` 或 `/opt/homebrew/Library/Taps/jackiexiao/homebrew-tap`）来确认 tap 的内容是否已更新。
