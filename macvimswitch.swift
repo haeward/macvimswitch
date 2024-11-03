@@ -95,7 +95,7 @@ class KeyboardManager {
     private var isKeyDown = false  // 添加新变量跟踪是否有按键被按下
     
     private var keyDownTime: TimeInterval = 0  // 记录最后一次按键时间
-    private var lastFlagChangeTime: TimeInterval = 0  // 记录最后一次修饰键变化时间
+    private var lastFlagChangeTime: TimeInterval = 0  // 记录最后一次修饰键变化时���
     
     private var keySequence: [TimeInterval] = []  // 记录按键序列的时间戳
     private var lastKeyEventTime: TimeInterval = 0  // 记录最后一次按键事件的时间
@@ -124,7 +124,7 @@ class KeyboardManager {
             return category == kTISCategoryKeyboardInputSource as String
         }
         
-        // 找到第一个非 ABC 的中文输入法
+        // 找到第一个��� ABC 的中文输入法
         for source in keyboardSources {
             guard let sourceIdRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
                   let sourceId = Unmanaged<CFString>.fromOpaque(sourceIdRef).takeUnretainedValue() as? String else {
@@ -173,7 +173,6 @@ class KeyboardManager {
     
     func switchInputMethod() {
         let currentSource = InputSourceManager.getCurrentSource()
-        
         guard let currentSourceId = InputSourceManager.getSourceID(currentSource) else {
             return
         }
@@ -188,24 +187,7 @@ class KeyboardManager {
                 // 从 ABC 切换到上一个输入法
                 if let source = InputSourceManager.getInputSource(name: lastSource) {
                     if InputSourceManager.isCJKVSource(source) {
-                        // CJKV 输入法的特殊切换序列
-                        TISSelectInputSource(source)
-                        usleep(InputSourceManager.uSeconds)
-                        
-                        if let nonCJKV = InputSourceManager.getNonCJKVSource() {
-                            TISSelectInputSource(nonCJKV)
-                            usleep(InputSourceManager.uSeconds)
-                            TISSelectInputSource(source)
-                            usleep(InputSourceManager.uSeconds)
-                            
-                            // 验证最终状态
-                            let finalSource = InputSourceManager.getCurrentSource()
-                            if let finalSourceId = InputSourceManager.getSourceID(finalSource),
-                               finalSourceId != lastSource {
-                                TISSelectInputSource(source)
-                                usleep(InputSourceManager.uSeconds)
-                            }
-                        }
+                        switchToCJKV(source)
                     } else {
                         TISSelectInputSource(source)
                         usleep(InputSourceManager.uSeconds)
@@ -217,6 +199,7 @@ class KeyboardManager {
                     // 保存当前输入法作为上一个输入法
                     lastInputSource = currentSourceId
                     
+                    // 使用特殊序列切换到 ABC
                     TISSelectInputSource(abcSource)
                     usleep(InputSourceManager.uSeconds)
                     
@@ -224,20 +207,29 @@ class KeyboardManager {
                     let finalSource = InputSourceManager.getCurrentSource()
                     if let finalSourceId = InputSourceManager.getSourceID(finalSource),
                        finalSourceId != abcInputSource {
-                        TISSelectInputSource(abcSource)
-                        usleep(InputSourceManager.uSeconds)
+                        // 如果失败，尝试另一种切换序列
+                        if let currentSource = InputSourceManager.getInputSource(name: currentSourceId),
+                           InputSourceManager.isCJKVSource(currentSource) {
+                            if let nonCJKV = InputSourceManager.getNonCJKVSource() {
+                                TISSelectInputSource(nonCJKV)
+                                usleep(InputSourceManager.uSeconds)
+                                TISSelectInputSource(abcSource)
+                                usleep(InputSourceManager.uSeconds)
+                            }
+                        } else {
+                            TISSelectInputSource(abcSource)
+                            usleep(InputSourceManager.uSeconds)
+                        }
                     }
                 }
             }
         } else {
-            // 初始化时，如果当前不是 ABC，就保存为上一个输入法
             if currentSourceId != abcInputSource {
                 lastInputSource = currentSourceId
             }
             initializeInputSources()
         }
         
-        // 每次切换后更新状态
         delegate?.keyboardManagerDidUpdateState()
     }
     
@@ -295,13 +287,83 @@ class KeyboardManager {
     // 添加新方法：专门用于ESC键的切换
     func switchToABC() {
         if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
-            TISSelectInputSource(abcSource)
+            let currentSource = InputSourceManager.getCurrentSource()
+            if let currentSourceId = InputSourceManager.getSourceID(currentSource),
+               currentSourceId != abcInputSource {
+                // 保存当前输入法
+                lastInputSource = currentSourceId
+                
+                // 使用特殊序列切换到 ABC
+                TISSelectInputSource(abcSource)
+                usleep(InputSourceManager.uSeconds)
+                
+                // 验证切换结果
+                let finalSource = InputSourceManager.getCurrentSource()
+                if let finalSourceId = InputSourceManager.getSourceID(finalSource),
+                   finalSourceId != abcInputSource {
+                    // 如果失败，尝试另一种切换序列
+                    if InputSourceManager.isCJKVSource(currentSource) {
+                        if let nonCJKV = InputSourceManager.getNonCJKVSource() {
+                            TISSelectInputSource(nonCJKV)
+                            usleep(InputSourceManager.uSeconds)
+                            TISSelectInputSource(abcSource)
+                            usleep(InputSourceManager.uSeconds)
+                        }
+                    }
+                }
+            }
+            
+            delegate?.keyboardManagerDidUpdateState()
         }
     }
     
     func setLastInputSource(_ sourceId: String) {
-        lastInputSource = sourceId
-        print("Set last input source to: \(sourceId)")
+        if let source = InputSourceManager.getInputSource(name: sourceId) {
+            // 直接切换到选择的输入法
+            if InputSourceManager.isCJKVSource(source) {
+                switchToCJKV(source)
+            } else {
+                TISSelectInputSource(source)
+                usleep(InputSourceManager.uSeconds)
+            }
+            
+            // 更新 lastInputSource
+            lastInputSource = sourceId
+            print("Set last input source to: \(sourceId)")
+            
+            // 通知状态更新
+            delegate?.keyboardManagerDidUpdateState()
+        }
+    }
+    
+    // 添加新的辅助方法来处理 CJKV 输入法切换
+    private func switchToCJKV(_ source: TISInputSource) {
+        // 第一步：切换到目标输入法
+        TISSelectInputSource(source)
+        usleep(InputSourceManager.uSeconds)
+        
+        // 第二步：切换到 ABC
+        if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
+            TISSelectInputSource(abcSource)
+            usleep(InputSourceManager.uSeconds)
+            
+            // 第三步：再切回目标输入法
+            TISSelectInputSource(source)
+            usleep(InputSourceManager.uSeconds)
+            
+            // 第四步：验证切换结果
+            let finalSource = InputSourceManager.getCurrentSource()
+            if let finalSourceId = InputSourceManager.getSourceID(finalSource),
+               finalSourceId != InputSourceManager.getSourceID(source) {
+                // 如果切换失败，尝试使用另一种序列
+                if let nonCJKV = InputSourceManager.getNonCJKVSource() {
+                    TISSelectInputSource(nonCJKV)
+                    usleep(InputSourceManager.uSeconds)
+                    TISSelectInputSource(source)
+                    usleep(InputSourceManager.uSeconds)
+                }
+            }
+        }
     }
 }
 
