@@ -77,29 +77,25 @@ git push origin main
 # 标记版本
 git tag v1.0.0
 git push origin v1.0.0
-
-# 在 GitHub 上：
-# 1. 进入仓库 → Releases → Create a new release
-# 2. 选择 v1.0.0 标签
-# 3. 标题：MacVimSwitch v1.0.0
-# 4. 生成发布说明
-# 5. 发布
 ```
+GitHub Actions 工作流会自动：
+- 构建应用程序
+- 创建包含应用程序包（.app）和源代码包（.tar.gz）的发布版本
+- 计算并显示用于更新 Homebrew formula 的 SHA256 值
+更新 Homebrew Formula
+
 
 4. 创建 Homebrew Tap
 ```bash
-# 1. 创建新仓库：github.com/jackiexiao/homebrew-tap
+# 1. 创建新仓库：github.com/jackiexiao/homebrew-tap（如果不存在）
 # 2. 克隆仓库
 git clone https://github.com/jackiexiao/homebrew-tap.git
 cd homebrew-tap
 
-# 3. 计算发布包的 SHA256 值
-curl -L https://github.com/jackiexiao/macvimswitch/archive/v1.0.0.tar.gz | shasum -a 256
-
-# 4. 更新 macvimswitch.rb 中的 SHA256
-# 5. 提交并推送 formula
+# 3. 使用 GitHub Release 中提供的 SHA256 值更新 macvimswitch.rb
+# 4. 提交并推送 formula
 git add macvimswitch.rb
-git commit -m "添加 MacVimSwitch formula"
+git commit -m "更新 MacVimSwitch formula 到 v1.0.0"
 git push origin main
 ```
 
