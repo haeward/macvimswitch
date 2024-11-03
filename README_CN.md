@@ -18,8 +18,16 @@ MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常�
 
 使用 Homebrew 安装：
 ```bash
+# brew untap jackiexiao/tap      # 如果需要更新 formula，先移除软件源
 brew tap jackiexiao/tap      # 添加软件源到 Homebrew
 brew install macvimswitch    # 安装 MacVimSwitch
+# 启动 MacVimSwitch
+launchctl load /opt/homebrew/opt/macvimswitch/Library/LaunchAgents/com.jackiexiao.macvimswitch.plist
+
+# 根据提示授予辅助功能权限
+
+# 停止 MacVimSwitch
+# launchctl unload /opt/homebrew/opt/macvimswitch/Library/LaunchAgents/com.jackiexiao.macvimswitch.plist
 ```
 
 或从源码编译：
