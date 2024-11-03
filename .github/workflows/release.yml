@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -189,13 +190,12 @@ jobs:
       - name: Checkout homebrew tap
         uses: actions/checkout@v4
         with:
-          repository: jackiexiao/homebrew-tap  # 替换为你的 homebrew tap 仓库
-          token: ${{ secrets.TAP_TOKEN }}      # 需要有写入权限的 token
+          repository: 'jackiexiao/homebrew-tap'
+          token: ${{ secrets.TAP_TOKEN }}
           path: homebrew-tap
 
       - name: Update Formula
         run: |
-          # 创建新分支
           cd homebrew-tap
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
@@ -203,10 +203,8 @@ jobs:
           branch_name="update-macvimswitch-${{ steps.get_version.outputs.VERSION }}"
           git checkout -b $branch_name
           
-          # 复制更新后的 formula
           cp ../macvimswitch.rb Formula/
           
-          # 提交更改
           git add Formula/macvimswitch.rb
           git commit -m "feat: update macvimswitch to ${{ steps.get_version.outputs.VERSION }}"
           git push origin $branch_name
@@ -215,8 +213,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.TAP_TOKEN }}
-          repository: jackiexiao/homebrew-tap
-          branch: update-macvimswitch-${{ steps.get_version.outputs.VERSION }}
+          path: homebrew-tap
           title: "feat: update macvimswitch to ${{ steps.get_version.outputs.VERSION }}"
           body: |
             Updates MacVimSwitch to version ${{ steps.get_version.outputs.VERSION }}
