@@ -95,51 +95,34 @@ swiftc macvimswitch.swift -o macvimswitch
 ### How to Release
 
 1. Create GitHub Repository
-```bash
-# 1. Create a new repository at github.com/jackiexiao/macvimswitch
-# 2. Clone and initialize the repository
+Create a new repository at github.com/jackiexiao/macvimswitch
+2. Clone and initialize the repository
+```
 git clone https://github.com/jackiexiao/macvimswitch.git
 cd macvimswitch
 ```
-
-2. Prepare Release Files
-```bash
-# Add all necessary files
-git add macvimswitch.swift README.md README_CN.md LICENSE
-git commit -m "Initial commit"
-git push origin main
+3. Release
 ```
-
-3. Create Release
-```bash
-# Tag the release
+Tag the release
 git tag v1.0.0
 git push origin v1.0.0
-
-# On GitHub:
-# 1. Go to repository → Releases → Create a new release
-# 2. Choose the v1.0.0 tag
-# 3. Title: MacVimSwitch v1.0.0
-# 4. Generate release notes
-# 5. Publish release
 ```
-
-4. Create Homebrew Tap
-```bash
-# 1. Create a new repository: github.com/jackiexiao/homebrew-tap
-# 2. Clone the repository
+4. Formula
+```
+bash
+1. Create a new repository: github.com/jackiexiao/homebrew-tap (if not exists)
+2. Clone the repository
+```
 git clone https://github.com/jackiexiao/homebrew-tap.git
 cd homebrew-tap
-
-# 3. Calculate SHA256 of the release tarball
-curl -L https://github.com/jackiexiao/macvimswitch/archive/v1.0.0.tar.gz | shasum -a 256
-
-# 4. Update the SHA256 in macvimswitch.rb
-# 5. Commit and push the formula
+```
+3. Update the SHA256 in macvimswitch.rb with the one from GitHub Release
+4. Commit and push the formula
 git add macvimswitch.rb
-git commit -m "Add MacVimSwitch formula"
+git commit -m "Update MacVimSwitch formula to v1.0.0"
 git push origin main
 ```
+5. Apply for a tap
 
 ### Development
 
@@ -160,3 +143,8 @@ swiftc macvimswitch.swift -o macvimswitch
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+
+## Acknowledgments
+
+- [macism](https://github.com/laishulu/macism) for the input method switching solution
