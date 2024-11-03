@@ -7,45 +7,51 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
-    
+    name: Build on ${{ matrix.os }} for ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            artifact_name: MacVimSwitch-x86_64
+            asset_name: MacVimSwitch-x86_64
+            arch: x86_64
+          - os: macos-latest
+            artifact_name: MacVimSwitch-arm64
+            asset_name: MacVimSwitch-arm64
+            arch: arm64
+
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Set up Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: latest-stable
-        
-    - name: Build Binaries
+
+    - name: Get version
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Build Binary
       run: |
-        # 获取版本号
-        VERSION=${GITHUB_REF#refs/tags/v}
-        echo "Building version ${VERSION}"
-        
-        # 创建构建目录
-        mkdir -p build/{arm64,x86_64}
-        
-        # 编译 ARM64 版本
-        swiftc -o build/arm64/macvimswitch macvimswitch.swift -framework Cocoa -framework Carbon -target arm64-apple-macos11
-        
-        # 编译 x86_64 版本
-        swiftc -o build/x86_64/macvimswitch macvimswitch.swift -framework Cocoa -framework Carbon -target x86_64-apple-macos11
-        
-        # 创建通用二进制
-        lipo -create build/arm64/macvimswitch build/x86_64/macvimswitch -output build/macvimswitch
-        
-    - name: Create Packages
+        mkdir -p build
+        target=""
+        if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
+          export target="x86_64"
+        else
+          export target="arm64"
+        fi
+        swiftc -o build/macvimswitch macvimswitch.swift -framework Cocoa -framework Carbon -target ${target}-apple-macos11
+
+    - name: Create Package
       run: |
-        VERSION=${GITHUB_REF#refs/tags/v}
-        
         # 创建目录结构
-        mkdir -p dist/{arm64,x86_64,universal}/MacVimSwitch.app/Contents/{MacOS,Resources}
-        mkdir -p dist/{arm64,x86_64,universal}/Library/LaunchAgents
+        mkdir -p dist/MacVimSwitch.app/Contents/{MacOS,Resources}
+        mkdir -p dist/Library/LaunchAgents
         
-        # 复制启动配置
-        for ARCH in arm64 x86_64 universal; do
-          cat > dist/$ARCH/Library/LaunchAgents/com.jackiexiao.macvimswitch.plist << EOL
+        # 复制启动配置和 Info.plist (与原文件相同)
+        cat > dist/Library/LaunchAgents/com.jackiexiao.macvimswitch.plist << EOL
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -62,7 +68,7 @@ jobs:
         </plist>
         EOL
         
-          cat > dist/$ARCH/MacVimSwitch.app/Contents/Info.plist << EOL
+        cat > dist/MacVimSwitch.app/Contents/Info.plist << EOL
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -76,7 +82,7 @@ jobs:
             <key>CFBundlePackageType</key>
             <string>APPL</string>
             <key>CFBundleShortVersionString</key>
-            <string>${VERSION}</string>
+            <string>${{ steps.get_version.outputs.VERSION }}</string>
             <key>LSMinimumSystemVersion</key>
             <string>11.0</string>
             <key>LSUIElement</key>
@@ -86,94 +92,138 @@ jobs:
         </dict>
         </plist>
         EOL
-        done
         
         # 复制可执行文件
-        cp build/arm64/macvimswitch dist/arm64/MacVimSwitch.app/Contents/MacOS/
-        cp build/x86_64/macvimswitch dist/x86_64/MacVimSwitch.app/Contents/MacOS/
-        cp build/macvimswitch dist/universal/MacVimSwitch.app/Contents/MacOS/
+        cp build/macvimswitch dist/MacVimSwitch.app/Contents/MacOS/
         
         # 创建压缩包
         cd dist
-        zip -r ../MacVimSwitch-arm64.zip arm64/MacVimSwitch.app arm64/Library
-        zip -r ../MacVimSwitch-x86_64.zip x86_64/MacVimSwitch.app x86_64/Library
-        zip -r ../MacVimSwitch-universal.zip universal/MacVimSwitch.app universal/Library
+        zip -r ../MacVimSwitch-${{ matrix.arch }}.zip MacVimSwitch.app Library
         cd ..
-        
-        # 创建源代码包（用于 Homebrew）
-        mkdir -p "macvimswitch-${VERSION}"
-        cp macvimswitch.swift README.md README_CN.md LICENSE "macvimswitch-${VERSION}/"
-        cp -r dist/universal/Library "macvimswitch-${VERSION}/"
-        tar czf "macvimswitch-${VERSION}.tar.gz" "macvimswitch-${VERSION}"
 
     - name: Calculate SHA256
-      id: sha
       run: |
-        VERSION=${GITHUB_REF#refs/tags/v}
-        HASH=$(shasum -a 256 "macvimswitch-${VERSION}.tar.gz" | awk '{print $1}')
-        echo "tarball_hash=${HASH}" >> $GITHUB_OUTPUT
+        shasum -a 256 MacVimSwitch-${{ matrix.arch }}.zip | cut -d ' ' -f 1 > sha256-${{ matrix.arch }}.txt
+      id: sha256
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Upload SHA256
+      uses: actions/upload-artifact@v4
       with:
-        tag_name: ${{ github.ref }}
-        release_name: MacVimSwitch ${{ github.ref_name }}
-        body: |
-          MacVimSwitch ${{ github.ref_name }}
+        name: sha256-${{ matrix.arch }}
+        path: sha256-${{ matrix.arch }}.txt
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.asset_name }}
+        path: MacVimSwitch-${{ matrix.arch }}.zip
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: MacVimSwitch ${{ steps.get_version.outputs.VERSION }}
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          files: |
+            MacVimSwitch-x86_64/MacVimSwitch-x86_64.zip
+            MacVimSwitch-arm64/MacVimSwitch-arm64.zip
+          body: |
+            MacVimSwitch ${{ steps.get_version.outputs.VERSION }}
+            
+            - ARM64 (Apple Silicon)
+            - x86_64 (Intel)
+
+      - name: Download SHA256s
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sha256-*
+          merge-multiple: true
+
+      - name: Update Formula
+        run: |
+          ARM64_SHA256=$(cat sha256-arm64.txt)
+          X86_64_SHA256=$(cat sha256-x86_64.txt)
           
-          - Universal Binary (Intel + Apple Silicon)
-          - ARM64 (Apple Silicon)
-          - x86_64 (Intel)
+          # Create updated formula
+          sed -i "s/PLACEHOLDER_ARM64_SHA256/$ARM64_SHA256/" macvimswitch.rb
+          sed -i "s/PLACEHOLDER_X86_64_SHA256/$X86_64_SHA256/" macvimswitch.rb
           
-          SHA256 for Homebrew: `${{ steps.sha.outputs.tarball_hash }}`
+          # Optional: Create a PR to update the formula in Homebrew tap
+          # This would require additional setup and permissions
+
+      - name: Upload Updated Formula
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-formula
+          path: macvimswitch.rb
+
+  update-homebrew:
+    name: Update Homebrew Tap
+    needs: [release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download updated formula
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-formula
+          path: ./
+
+      - name: Checkout homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: jackiexiao/homebrew-tap  # 替换为你的 homebrew tap 仓库
+          token: ${{ secrets.TAP_TOKEN }}      # 需要有写入权限的 token
+          path: homebrew-tap
+
+      - name: Update Formula
+        run: |
+          # 创建新分支
+          cd homebrew-tap
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
           
-          Please update the SHA256 in the Homebrew formula:          ```ruby
-          class Macvimswitch < Formula
-            url "https://github.com/jackiexiao/macvimswitch/archive/${{ github.ref_name }}.tar.gz"
-            sha256 "${{ steps.sha.outputs.tarball_hash }}"
-          end          ```
-        draft: false
-        prerelease: false
-        
-    - name: Upload Universal App Bundle
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./MacVimSwitch-universal.zip
-        asset_name: MacVimSwitch-universal.zip
-        asset_content_type: application/zip
-        
-    - name: Upload ARM64 App Bundle
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./MacVimSwitch-arm64.zip
-        asset_name: MacVimSwitch-arm64.zip
-        asset_content_type: application/zip
-        
-    - name: Upload x86_64 App Bundle
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./MacVimSwitch-x86_64.zip
-        asset_name: MacVimSwitch-x86_64.zip
-        asset_content_type: application/zip
-        
-    - name: Upload Source Tarball
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./macvimswitch-${{ github.ref_name }}.tar.gz
-        asset_name: macvimswitch-${{ github.ref_name }}.tar.gz
-        asset_content_type: application/gzip
+          branch_name="update-macvimswitch-${{ steps.get_version.outputs.VERSION }}"
+          git checkout -b $branch_name
+          
+          # 复制更新后的 formula
+          cp ../macvimswitch.rb Formula/
+          
+          # 提交更改
+          git add Formula/macvimswitch.rb
+          git commit -m "feat: update macvimswitch to ${{ steps.get_version.outputs.VERSION }}"
+          git push origin $branch_name
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.TAP_TOKEN }}
+          repository: jackiexiao/homebrew-tap
+          branch: update-macvimswitch-${{ steps.get_version.outputs.VERSION }}
+          title: "feat: update macvimswitch to ${{ steps.get_version.outputs.VERSION }}"
+          body: |
+            Updates MacVimSwitch to version ${{ steps.get_version.outputs.VERSION }}
+            
+            - Updates version to ${{ steps.get_version.outputs.VERSION }}
+            - Updates SHA256 hashes for both ARM64 and x86_64 builds
+            
+            This PR was automatically generated by GitHub Actions.
+          base: main
+          delete-branch: true

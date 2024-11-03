@@ -1,17 +1,30 @@
 class Macvimswitch < Formula
   desc "Automatic input source switcher for Mac"
   homepage "https://github.com/jackiexiao/macvimswitch"
-  url "https://github.com/jackiexiao/macvimswitch/archive/v1.0.0.tar.gz"
-  sha256 "YOUR_TARBALL_SHA256"
-  
-  depends_on :xcode => :build
+  version "1.0.0"
+
+  if OS.mac?
+    if Hardware::CPU.arm?
+      url "https://github.com/jackiexiao/macvimswitch/releases/download/v#{version}/MacVimSwitch-arm64.zip"
+      sha256 "PLACEHOLDER_ARM64_SHA256"  # 将在 GitHub Actions 中计算并替换
+    else
+      url "https://github.com/jackiexiao/macvimswitch/releases/download/v#{version}/MacVimSwitch-x86_64.zip"
+      sha256 "PLACEHOLDER_X86_64_SHA256"  # 将在 GitHub Actions 中计算并替换
+    end
+  end
+
   depends_on :macos
-  
+
   def install
-    system "swiftc", "macvimswitch.swift", "-o", "macvimswitch"
-    bin.install "macvimswitch"
-    
-    # 创建启动项配置
+    if OS.mac?
+      if Hardware::CPU.arm?
+        bin.install "MacVimSwitch.app/Contents/MacOS/macvimswitch" => "macvimswitch"
+      else
+        bin.install "MacVimSwitch.app/Contents/MacOS/macvimswitch" => "macvimswitch"
+      end
+    end
+
+    # Install launch agent
     (prefix/"Library/LaunchAgents/com.jackiexiao.macvimswitch.plist").write <<~EOS
       <?xml version="1.0" encoding="UTF-8"?>
       <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
