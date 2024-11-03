@@ -11,7 +11,7 @@ MacVimSwitch is a utility for macOS that automatically switches input sources, d
 - Built-in Shift key switching feature (enabled by default)
   - Important: Before using, please disable the "Use Shift to switch between English and Chinese/Japanese/Korean/Vietnamese" option in your input method settings
   - Can be disabled in the status bar menu if needed
-- Reminder about CapsLock behavior on Mac: short press to switch input method, long press for caps lock
+- If you don't want to use Shift key switching, on Mac, CapsLock short press to switch input method, long press for caps lock
 - Auto-starts on system login
 
 ## Why MacVimSwitch?
