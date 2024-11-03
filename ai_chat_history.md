@@ -1,5 +1,5 @@
 
-
+# workflow 优化
 好的，我来帮你添加自动更新 Homebrew tap 的 job。这个 job 会在发布完成后运行，创建一个 PR 来更新 Formula。
 
 ```yaml:.github/workflows/release.yml
@@ -94,3 +94,94 @@
 你只需要审查并合并这个 PR，新版本就会在 Homebrew 中可用。
 
 注意：确保在仓库的 Settings -> Actions -> General 中允许工作流程创建和批准 PR。
+
+
+# 本地调试 workflow
+你可以通过以下几种方式来调试或手动触发这个 workflow：
+
+1. **手动触发方式**
+
+创建并推送一个新的 tag 来触发 workflow：
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+2. **添加手动触发选项**
+
+在 workflow 文件中添加 `workflow_dispatch` 事件，这样你就可以在 GitHub 界面上手动触发：
+
+```yaml:.github/workflows/release.yml
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:  # 添加这一行
+```
+
+添加后，你可以：
+1. 打开你的 GitHub 仓库
+2. 点击 "Actions" 标签
+3. 选择左侧的 "Build and Release" workflow
+4. 点击 "Run workflow" 按钮
+5. 选择要运行的分支，然后点击 "Run workflow"
+
+3. **本地调试技巧**
+
+对于特定步骤的调试：
+
+```bash
+# 测试编译
+swiftc -o build/macvimswitch macvimswitch.swift -framework Cocoa -framework Carbon -target arm64-apple-macos11
+
+# 测试打包
+mkdir -p dist/MacVimSwitch.app/Contents/{MacOS,Resources}
+mkdir -p dist/Library/LaunchAgents
+
+# 测试压缩
+cd dist
+zip -r ../MacVimSwitch-arm64.zip MacVimSwitch.app Library
+
+# 测试 SHA256 计算
+shasum -a 256 MacVimSwitch-arm64.zip
+```
+
+4. **使用 Act 工具**
+
+[Act](https://github.com/nektos/act) 可以在本地运行 GitHub Actions：
+
+```bash
+# 安装 (MacOS)
+brew install act
+
+# 运行
+act -j build
+
+# 使用特定事件触发
+act push -t refs/tags/v1.0.0
+```
+
+5. **调试输出**
+
+在 workflow 中添加调试信息：
+
+```yaml:.github/workflows/release.yml
+    - name: Debug Info
+      run: |
+        echo "Current arch: ${{ matrix.arch }}"
+        echo "Current OS: ${{ matrix.os }}"
+        echo "Version: ${{ steps.get_version.outputs.VERSION }}"
+        ls -la
+```
+
+6. **启用调试日志**
+
+在仓库的 Actions 页面运行 workflow 时，可以：
+1. 展开有问题的步骤
+2. 点击右上角的齿轮图标
+3. 启用 "Debug logging"
+
+记住：
+- 手动触发时，确保代码和所需文件都已经推送到仓库
+- 本地测试时，确保已安装所有必要的依赖
+- 对于涉及 secrets 的步骤，需要在仓库设置中配置相应的 secrets
