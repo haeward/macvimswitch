@@ -31,6 +31,44 @@ class InputSourceManager {
         
         return (inputSource as! TISInputSource)
     }
+    
+    static func isCJKVSource(_ source: TISInputSource) -> Bool {
+        guard let langRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceLanguages),
+              let languages = Unmanaged<CFArray>.fromOpaque(langRef).takeUnretainedValue() as? [String],
+              let lang = languages.first else {
+            return false
+        }
+        
+        return lang == "ko" || lang == "ja" || lang == "vi" || lang.hasPrefix("zh")
+    }
+    
+    static func getNonCJKVSource() -> TISInputSource? {
+        guard let inputSources = TISCreateInputSourceList(nil, true)?.takeRetainedValue() as? [TISInputSource] else {
+            return nil
+        }
+        
+        return inputSources.first { source in
+            guard let categoryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory) else {
+                return false
+            }
+            let category = Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as String
+            return category == (kTISCategoryKeyboardInputSource as String) && !isCJKVSource(source)
+        }
+    }
+    
+    static func getSourceID(_ source: TISInputSource) -> String? {
+        guard let sourceIdRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else {
+            return nil
+        }
+        return Unmanaged<CFString>.fromOpaque(sourceIdRef).takeUnretainedValue() as String
+    }
+    
+    static func getSourceName(_ source: TISInputSource) -> String? {
+        guard let nameRef = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) else {
+            return nil
+        }
+        return Unmanaged<CFString>.fromOpaque(nameRef).takeUnretainedValue() as String
+    }
 }
 
 // 添加代理协议
@@ -136,10 +174,9 @@ class KeyboardManager {
     func switchInputMethod() {
         let currentSource = InputSourceManager.getCurrentSource()
         
-        guard let currentSourceIdRef = TISGetInputSourceProperty(currentSource, kTISPropertyInputSourceID) else {
+        guard let currentSourceId = InputSourceManager.getSourceID(currentSource) else {
             return
         }
-        let currentSourceId = Unmanaged<CFString>.fromOpaque(currentSourceIdRef).takeUnretainedValue() as String
         
         // 如果还没有找到中文输入法，尝试初始化
         if lastInputSource == nil && currentSourceId != abcInputSource {
@@ -148,18 +185,60 @@ class KeyboardManager {
         
         if let lastSource = lastInputSource {
             if currentSourceId == abcInputSource {
+                // 从 ABC 切换到上一个输入法
                 if let source = InputSourceManager.getInputSource(name: lastSource) {
-                    TISSelectInputSource(source)
+                    if InputSourceManager.isCJKVSource(source) {
+                        // CJKV 输入法的特殊切换序列
+                        TISSelectInputSource(source)
+                        usleep(InputSourceManager.uSeconds)
+                        
+                        if let nonCJKV = InputSourceManager.getNonCJKVSource() {
+                            TISSelectInputSource(nonCJKV)
+                            usleep(InputSourceManager.uSeconds)
+                            TISSelectInputSource(source)
+                            usleep(InputSourceManager.uSeconds)
+                            
+                            // 验证最终状态
+                            let finalSource = InputSourceManager.getCurrentSource()
+                            if let finalSourceId = InputSourceManager.getSourceID(finalSource),
+                               finalSourceId != lastSource {
+                                TISSelectInputSource(source)
+                                usleep(InputSourceManager.uSeconds)
+                            }
+                        }
+                    } else {
+                        TISSelectInputSource(source)
+                        usleep(InputSourceManager.uSeconds)
+                    }
                 }
             } else {
+                // 从其他输入法切换到 ABC
                 if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
+                    // 保存当前输入法作为上一个输入法
+                    lastInputSource = currentSourceId
+                    
                     TISSelectInputSource(abcSource)
+                    usleep(InputSourceManager.uSeconds)
+                    
+                    // 验证切换结果
+                    let finalSource = InputSourceManager.getCurrentSource()
+                    if let finalSourceId = InputSourceManager.getSourceID(finalSource),
+                       finalSourceId != abcInputSource {
+                        TISSelectInputSource(abcSource)
+                        usleep(InputSourceManager.uSeconds)
+                    }
                 }
             }
         } else {
-            // 如果仍然没有找到中文输入法，重新初始化
+            // 初始化时，如果当前不是 ABC，就保存为上一个输入法
+            if currentSourceId != abcInputSource {
+                lastInputSource = currentSourceId
+            }
             initializeInputSources()
         }
+        
+        // 每次切换后更新状态
+        delegate?.keyboardManagerDidUpdateState()
     }
     
     // 修改方法来处理其他修饰键的状态
