@@ -1,0 +1,133 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当推送带 v 前缀的标签时触发，如 v1.0.0
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+        
+    - name: Build App
+      run: |
+        # 编译应用
+        swiftc -o macvimswitch macvimswitch.swift -framework Cocoa -framework Carbon
+        
+    - name: Create App Bundle
+      run: |
+        mkdir -p MacVimSwitch.app/Contents/{MacOS,Resources}
+        
+        # 复制可执行文件
+        cp macvimswitch MacVimSwitch.app/Contents/MacOS/
+        chmod +x MacVimSwitch.app/Contents/MacOS/macvimswitch
+        
+        # 创建 Info.plist
+        cat > MacVimSwitch.app/Contents/Info.plist << EOL
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleExecutable</key>
+            <string>macvimswitch</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.jackiexiao.macvimswitch</string>
+            <key>CFBundleName</key>
+            <string>MacVimSwitch</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${GITHUB_REF#refs/tags/v}</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>10.13</string>
+            <key>LSUIElement</key>
+            <true/>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+        </dict>
+        </plist>
+        EOL
+        
+        # 创建 LaunchAgent plist
+        mkdir -p Library/LaunchAgents
+        cat > Library/LaunchAgents/com.jackiexiao.macvimswitch.plist << EOL
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>Label</key>
+            <string>com.jackiexiao.macvimswitch</string>
+            <key>Program</key>
+            <string>/usr/local/bin/macvimswitch</string>
+            <key>RunAtLoad</key>
+            <true/>
+            <key>KeepAlive</key>
+            <true/>
+        </dict>
+        </plist>
+        EOL
+        
+        # 创建发布包
+        zip -r MacVimSwitch.zip MacVimSwitch.app Library
+        
+        # 创建源代码包（用于 Homebrew）
+        tar czf macvimswitch-${GITHUB_REF#refs/tags/v}.tar.gz \
+            macvimswitch.swift \
+            README.md \
+            README_CN.md \
+            LICENSE \
+            Library/LaunchAgents/com.jackiexiao.macvimswitch.plist
+
+    - name: Calculate SHA256
+      id: sha256
+      run: |
+        echo "::set-output name=tarball_hash::$(shasum -a 256 macvimswitch-${GITHUB_REF#refs/tags/v}.tar.gz | awk '{print $1}')"
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: MacVimSwitch ${{ github.ref_name }}
+        body: |
+          MacVimSwitch ${{ github.ref_name }}
+          
+          SHA256 for Homebrew: `${{ steps.sha256.outputs.tarball_hash }}`
+          
+          Please update the SHA256 in the Homebrew formula:          ```ruby
+          class Macvimswitch < Formula
+            url "https://github.com/jackiexiao/macvimswitch/archive/${{ github.ref_name }}.tar.gz"
+            sha256 "${{ steps.sha256.outputs.tarball_hash }}"
+          end          ```
+        draft: false
+        prerelease: false
+        
+    - name: Upload App Bundle
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./MacVimSwitch.zip
+        asset_name: MacVimSwitch.zip
+        asset_content_type: application/zip
+        
+    - name: Upload Source Tarball
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./macvimswitch-${{ github.ref_name }}.tar.gz
+        asset_name: macvimswitch-${{ github.ref_name }}.tar.gz
+        asset_content_type: application/gzip

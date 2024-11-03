@@ -178,3 +178,7 @@ MacVimSwitch 相比其他输入法切换方案有以下优势：
    - 可与 MacVimSwitch 同时使用
 
 选择最适合您工作流程的方式！
+
+# 感谢
+
+- [macism](https://github.com/laishulu/macism) 提供的输入法切换方案
