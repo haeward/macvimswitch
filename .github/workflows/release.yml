@@ -17,47 +17,35 @@ jobs:
       with:
         xcode-version: latest-stable
         
-    - name: Build App
+    - name: Build Binaries
       run: |
-        swiftc -o macvimswitch macvimswitch.swift -framework Cocoa -framework Carbon
+        # 获取版本号
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "Building version ${VERSION}"
         
-    - name: Create App Bundle
+        # 创建构建目录
+        mkdir -p build/{arm64,x86_64}
+        
+        # 编译 ARM64 版本
+        swiftc -o build/arm64/macvimswitch macvimswitch.swift -framework Cocoa -framework Carbon -target arm64-apple-macos11
+        
+        # 编译 x86_64 版本
+        swiftc -o build/x86_64/macvimswitch macvimswitch.swift -framework Cocoa -framework Carbon -target x86_64-apple-macos11
+        
+        # 创建通用二进制
+        lipo -create build/arm64/macvimswitch build/x86_64/macvimswitch -output build/macvimswitch
+        
+    - name: Create Packages
       run: |
-        mkdir -p MacVimSwitch.app/Contents/{MacOS,Resources}
+        VERSION=${GITHUB_REF#refs/tags/v}
         
-        # 复制可执行文件
-        cp macvimswitch MacVimSwitch.app/Contents/MacOS/
-        chmod +x MacVimSwitch.app/Contents/MacOS/macvimswitch
+        # 创建目录结构
+        mkdir -p dist/{arm64,x86_64,universal}/MacVimSwitch.app/Contents/{MacOS,Resources}
+        mkdir -p dist/{arm64,x86_64,universal}/Library/LaunchAgents
         
-        # 创建 Info.plist
-        cat > MacVimSwitch.app/Contents/Info.plist << EOL
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>CFBundleExecutable</key>
-            <string>macvimswitch</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.jackiexiao.macvimswitch</string>
-            <key>CFBundleName</key>
-            <string>MacVimSwitch</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleShortVersionString</key>
-            <string>${GITHUB_REF#refs/tags/v}</string>
-            <key>LSMinimumSystemVersion</key>
-            <string>10.13</string>
-            <key>LSUIElement</key>
-            <true/>
-            <key>NSHighResolutionCapable</key>
-            <true/>
-        </dict>
-        </plist>
-        EOL
-        
-        # 创建 LaunchAgent plist
-        mkdir -p Library/LaunchAgents
-        cat > Library/LaunchAgents/com.jackiexiao.macvimswitch.plist << EOL
+        # 复制启动配置
+        for ARCH in arm64 x86_64 universal; do
+          cat > dist/$ARCH/Library/LaunchAgents/com.jackiexiao.macvimswitch.plist << EOL
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -74,17 +62,49 @@ jobs:
         </plist>
         EOL
         
-        # 创建发布包
-        zip -r MacVimSwitch.zip MacVimSwitch.app Library
+          cat > dist/$ARCH/MacVimSwitch.app/Contents/Info.plist << EOL
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleExecutable</key>
+            <string>macvimswitch</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.jackiexiao.macvimswitch</string>
+            <key>CFBundleName</key>
+            <string>MacVimSwitch</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${VERSION}</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>11.0</string>
+            <key>LSUIElement</key>
+            <true/>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+        </dict>
+        </plist>
+        EOL
+        done
+        
+        # 复制可执行文件
+        cp build/arm64/macvimswitch dist/arm64/MacVimSwitch.app/Contents/MacOS/
+        cp build/x86_64/macvimswitch dist/x86_64/MacVimSwitch.app/Contents/MacOS/
+        cp build/macvimswitch dist/universal/MacVimSwitch.app/Contents/MacOS/
+        
+        # 创建压缩包
+        cd dist
+        zip -r ../MacVimSwitch-arm64.zip arm64/MacVimSwitch.app arm64/Library
+        zip -r ../MacVimSwitch-x86_64.zip x86_64/MacVimSwitch.app x86_64/Library
+        zip -r ../MacVimSwitch-universal.zip universal/MacVimSwitch.app universal/Library
+        cd ..
         
         # 创建源代码包（用于 Homebrew）
-        VERSION=${GITHUB_REF#refs/tags/v}
-        tar czf "macvimswitch-${VERSION}.tar.gz" \
-            macvimswitch.swift \
-            README.md \
-            README_CN.md \
-            LICENSE \
-            Library/LaunchAgents/com.jackiexiao.macvimswitch.plist
+        mkdir -p "macvimswitch-${VERSION}"
+        cp macvimswitch.swift README.md README_CN.md LICENSE "macvimswitch-${VERSION}/"
+        cp -r dist/universal/Library "macvimswitch-${VERSION}/"
+        tar czf "macvimswitch-${VERSION}.tar.gz" "macvimswitch-${VERSION}"
 
     - name: Calculate SHA256
       id: sha
@@ -104,6 +124,10 @@ jobs:
         body: |
           MacVimSwitch ${{ github.ref_name }}
           
+          - Universal Binary (Intel + Apple Silicon)
+          - ARM64 (Apple Silicon)
+          - x86_64 (Intel)
+          
           SHA256 for Homebrew: `${{ steps.sha.outputs.tarball_hash }}`
           
           Please update the SHA256 in the Homebrew formula:          ```ruby
@@ -114,14 +138,34 @@ jobs:
         draft: false
         prerelease: false
         
-    - name: Upload App Bundle
+    - name: Upload Universal App Bundle
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./MacVimSwitch.zip
-        asset_name: MacVimSwitch.zip
+        asset_path: ./MacVimSwitch-universal.zip
+        asset_name: MacVimSwitch-universal.zip
+        asset_content_type: application/zip
+        
+    - name: Upload ARM64 App Bundle
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./MacVimSwitch-arm64.zip
+        asset_name: MacVimSwitch-arm64.zip
+        asset_content_type: application/zip
+        
+    - name: Upload x86_64 App Bundle
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./MacVimSwitch-x86_64.zip
+        asset_name: MacVimSwitch-x86_64.zip
         asset_content_type: application/zip
         
     - name: Upload Source Tarball
