@@ -158,13 +158,12 @@ jobs:
         run: |
           ARM64_SHA256=$(cat sha256-arm64.txt)
           X86_64_SHA256=$(cat sha256-x86_64.txt)
+          VERSION=${GITHUB_REF#refs/tags/v}
           
           # Create updated formula
+          sed -i "s/PLACEHOLDER_VERSION/$VERSION/" macvimswitch.rb
           sed -i "s/PLACEHOLDER_ARM64_SHA256/$ARM64_SHA256/" macvimswitch.rb
           sed -i "s/PLACEHOLDER_X86_64_SHA256/$X86_64_SHA256/" macvimswitch.rb
-          
-          # Optional: Create a PR to update the formula in Homebrew tap
-          # This would require additional setup and permissions
 
       - name: Upload Updated Formula
         uses: actions/upload-artifact@v4
