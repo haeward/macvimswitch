@@ -16,23 +16,12 @@ MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常�
 
 ## 安装方法
 
-```bash
-brew tap jackiexiao/tap
-brew install macvimswitch
-```
-
-安装完成后：
-1. MacVimSwitch 将作为标准的 macOS 应用程序安装
-2. 你可以通过以下方式找到并启动：
-   - Spotlight 搜索（Command + 空格）
-   - 启动台（Launchpad）
-   - 应用程序文件夹
-3. 应用程序默认会在系统登录时自动启动（可在菜单栏中关闭）
+从 [GitHub Releases](https://github.com/Jackiexiao/macvimswitch/releases) 下载并手动安装。
 
 ## 使用方法
 
 1. 首次启动：
-   - 通过 Spotlight 或启动台打开 MacVimSwitch
+   - 解压后打开 MacVimSwitch
    - 根据提示授予辅助功能权限
    - 打开系统偏好设置 → 安全性与隐私 → 隐私 → 辅助功能
    - 添加并启用 MacVimSwitch
