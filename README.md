@@ -16,23 +16,12 @@ MacVimSwitch is a utility for macOS that automatically switches input sources, d
 
 ## Installation
 
-```bash
-brew tap jackiexiao/tap
-brew install macvimswitch
-```
-
-After installation:
-1. MacVimSwitch will be installed as a standard macOS application
-2. You can find it in:
-   - Spotlight Search (Command + Space)
-   - Launchpad
-   - Applications folder
-3. The app will be configured to start automatically at login (can be disabled from menu bar)
+Download from [GitHub Releases](https://github.com/Jackiexiao/macvimswitch/releases) and install it manually.
 
 ## Usage
 
 1. First Launch:
-   - Open MacVimSwitch from Spotlight or Launchpad
+   - Unzip and open MacVimSwitch
    - Grant Accessibility permissions when prompted
    - Go to System Preferences → Security & Privacy → Privacy → Accessibility
    - Add and enable MacVimSwitch
