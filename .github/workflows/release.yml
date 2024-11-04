@@ -47,28 +47,13 @@ jobs:
 
     - name: Create Package
       run: |
-        # 创建目录结构
+        # 创建标准的 macOS 应用包结构
         mkdir -p dist/MacVimSwitch.app/Contents/{MacOS,Resources}
-        mkdir -p dist/Library/LaunchAgents
         
-        # 复制启动配置和 Info.plist (与原文件相同)
-        cat > dist/Library/LaunchAgents/com.jackiexiao.macvimswitch.plist << EOL
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>Label</key>
-            <string>com.jackiexiao.macvimswitch</string>
-            <key>Program</key>
-            <string>/usr/local/bin/macvimswitch</string>
-            <key>RunAtLoad</key>
-            <true/>
-            <key>KeepAlive</key>
-            <true/>
-        </dict>
-        </plist>
-        EOL
+        # 复制可执行文件
+        cp build/macvimswitch dist/MacVimSwitch.app/Contents/MacOS/
         
+        # 创建 Info.plist
         cat > dist/MacVimSwitch.app/Contents/Info.plist << EOL
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -76,6 +61,8 @@ jobs:
         <dict>
             <key>CFBundleExecutable</key>
             <string>macvimswitch</string>
+            <key>CFBundleIconFile</key>
+            <string>AppIcon</string>
             <key>CFBundleIdentifier</key>
             <string>com.jackiexiao.macvimswitch</string>
             <key>CFBundleName</key>
@@ -90,16 +77,18 @@ jobs:
             <true/>
             <key>NSHighResolutionCapable</key>
             <true/>
+            <key>LSApplicationCategoryType</key>
+            <string>public.app-category.utilities</string>
         </dict>
         </plist>
         EOL
         
-        # 复制可执行文件
-        cp build/macvimswitch dist/MacVimSwitch.app/Contents/MacOS/
+        # 添加应用图标（如果有的话）
+        # cp AppIcon.icns dist/MacVimSwitch.app/Contents/Resources/
         
         # 创建压缩包
         cd dist
-        zip -r ../MacVimSwitch-${{ matrix.arch }}.zip MacVimSwitch.app Library
+        zip -r ../MacVimSwitch-${{ matrix.arch }}.zip MacVimSwitch.app
         cd ..
 
     - name: Calculate SHA256

@@ -1,6 +1,7 @@
 import Cocoa
 import Carbon
 import Foundation
+import ServiceManagement
 
 class InputSourceManager {
     static var keyboardOnly = true
@@ -51,7 +52,7 @@ class InputSourceManager {
             guard let categoryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory) else {
                 return false
             }
-            let category = Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as String
+            let category = (Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as NSString) as String
             return category == (kTISCategoryKeyboardInputSource as String) && !isCJKVSource(source)
         }
     }
@@ -95,13 +96,13 @@ class KeyboardManager {
     private var isKeyDown = false  // 添加新变量跟踪是否有按键被按下
     
     private var keyDownTime: TimeInterval = 0  // 记录最后一次按键时间
-    private var lastFlagChangeTime: TimeInterval = 0  // 记录最后一次修饰键变化时���
+    private var lastFlagChangeTime: TimeInterval = 0  // 记录最一次修饰键变化时
     
     private var keySequence: [TimeInterval] = []  // 记录按键序列的时间戳
     private var lastKeyEventTime: TimeInterval = 0  // 记录最后一次按键事件的时间
     private static let KEY_SEQUENCE_WINDOW: TimeInterval = 0.3  // 按键序列的时间窗口
     
-    private var shiftPressStartTime: TimeInterval = 0  // 记录 Shift 按下的开始时间
+    private var shiftPressStartTime: TimeInterval = 0  // 记录 Shift 下的开始时间
     private var hasOtherKeysDuringShift = false       // 记录 Shift 按下期间是否有其他键按下
     
     private init() {
@@ -118,16 +119,16 @@ class KeyboardManager {
         // 过滤出键盘输入源
         let keyboardSources = inputSources.filter { source in
             guard let categoryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory),
-                  let category = Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as? String else {
+                  let category = (Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as NSString) as String? else {
                 return false
             }
             return category == kTISCategoryKeyboardInputSource as String
         }
         
-        // 找到第一个��� ABC 的中文输入法
+        // 找到第一个 ABC 的中文输入法
         for source in keyboardSources {
             guard let sourceIdRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
-                  let sourceId = Unmanaged<CFString>.fromOpaque(sourceIdRef).takeUnretainedValue() as? String else {
+                  let sourceId = (Unmanaged<CFString>.fromOpaque(sourceIdRef).takeUnretainedValue() as NSString) as String? else {
                 continue
             }
             
@@ -319,7 +320,7 @@ class KeyboardManager {
     
     func setLastInputSource(_ sourceId: String) {
         if let source = InputSourceManager.getInputSource(name: sourceId) {
-            // 直接切换到选择的输入法
+            // 直接切到选择的输入法
             if InputSourceManager.isCJKVSource(source) {
                 switchToCJKV(source)
             } else {
@@ -363,6 +364,13 @@ class KeyboardManager {
                     usleep(InputSourceManager.uSeconds)
                 }
             }
+        }
+    }
+    
+    // 添加公共方法来访问和控制 eventTap
+    func disableEventTap() {
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
         }
     }
 }
@@ -411,6 +419,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
     private var menu: NSMenu?  // 添加菜单属性
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 确保应用不会随终端退出
+        ProcessInfo.processInfo.enableSuddenTermination()
+        
         // 设置代理
         KeyboardManager.shared.delegate = self
         
@@ -439,8 +450,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         let alert = NSAlert()
         alert.messageText = "MacVimSwitch 使用说明"
         alert.informativeText = """
-            重要提示：
-            1. 请先关闭输入法中的"使用 Shift 切换中英文"选项，否则会产生冲突
+            重要示：
+            1. 先关闭输入法中的"使用 Shift 切换中英文"选项，否则会产生冲突
             2. 具体操作：打开输入法偏好设置 → 关闭"使用 Shift 切换中英文"
             
             功能说明：
@@ -537,7 +548,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         
         // 修改 Shift 切换选项的文字
         let shiftSwitchItem = NSMenuItem(
-            title: "使用 Shift 切换输入法",
+            title: "使用 Shift 切换入法",
             action: #selector(toggleShiftSwitch),
             keyEquivalent: ""
         )
@@ -546,7 +557,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         newMenu.addItem(shiftSwitchItem)
         
         newMenu.addItem(NSMenuItem.separator())
-        newMenu.addItem(NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        
+        // 添加开机启动选项
+        let launchAtLoginItem = NSMenuItem(
+            title: "开机启动",
+            action: #selector(toggleLaunchAtLogin),
+            keyEquivalent: ""
+        )
+        launchAtLoginItem.target = self
+        launchAtLoginItem.state = isLaunchAtLoginEnabled() ? .on : .off
+        newMenu.addItem(launchAtLoginItem)
+        
+        newMenu.addItem(NSMenuItem.separator())
+        newMenu.addItem(NSMenuItem(title: "退出", action: #selector(quitApp), keyEquivalent: "q"))
         
         statusItem.menu = newMenu
         self.menu = newMenu
@@ -559,39 +582,39 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         }
         
         var methods: [(String, String)] = []
-        var seenNames = Set<String>()  // 用于追踪已经添加的输入法名称
+        var seenNames = Set<String>()
         
         for source in inputSources {
             // 获取输入法类别
             guard let categoryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory),
-                  let category = Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as? String,
+                  let category = (Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as NSString) as String?,
                   category == kTISCategoryKeyboardInputSource as String else {
                 continue
             }
             
             // 检查输入法是否启用
-            guard let enabledRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsEnabled),
-                  let enabled = Unmanaged<CFBoolean>.fromOpaque(enabledRef).takeUnretainedValue() as? Bool,
-                  enabled else {
+            guard let enabledRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsEnabled) else {
                 continue
             }
+            let enabled = CFBooleanGetValue(Unmanaged<CFBoolean>.fromOpaque(enabledRef).takeUnretainedValue())
+            guard enabled else { continue }
             
             // 检查是否是主要输入源
-            guard let isPrimaryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsSelectCapable),
-                  let isPrimary = Unmanaged<CFBoolean>.fromOpaque(isPrimaryRef).takeUnretainedValue() as? Bool,
-                  isPrimary else {
+            guard let isPrimaryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsSelectCapable) else {
                 continue
             }
+            let isPrimary = CFBooleanGetValue(Unmanaged<CFBoolean>.fromOpaque(isPrimaryRef).takeUnretainedValue())
+            guard isPrimary else { continue }
             
             // 获取输入法 ID
             guard let sourceIdRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
-                  let sourceId = Unmanaged<CFString>.fromOpaque(sourceIdRef).takeUnretainedValue() as? String else {
+                  let sourceId = (Unmanaged<CFString>.fromOpaque(sourceIdRef).takeUnretainedValue() as NSString) as String? else {
                 continue
             }
             
             // 获取输入法名称
             guard let nameRef = TISGetInputSourceProperty(source, kTISPropertyLocalizedName),
-                  let name = Unmanaged<CFString>.fromOpaque(nameRef).takeUnretainedValue() as? String else {
+                  let name = (Unmanaged<CFString>.fromOpaque(nameRef).takeUnretainedValue() as NSString) as String? else {
                 continue
             }
             
@@ -602,7 +625,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
             }
         }
         
-        // 按名称排序
         return methods.sorted { $0.1 < $1.1 }
     }
     
@@ -628,5 +650,67 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
     func keyboardManagerDidUpdateState() {
         updateStatusBarIcon()
         createAndShowMenu()
+    }
+    
+    // 检查是否已设置开机启动
+    private func isLaunchAtLoginEnabled() -> Bool {
+        if let loginItems = try? FileManager.default.contentsOfDirectory(atPath: "/Users/\(NSUserName())/Library/Application Support/com.apple.backgroundtaskmanagementagent/BackgroundItems.btm") {
+            return loginItems.contains(where: { $0.contains("MacVimSwitch") })
+        }
+        return false
+    }
+    
+    // 切换开机启动状态
+    @objc private func toggleLaunchAtLogin() {
+        let bundlePath = Bundle.main.bundlePath
+        
+        if isLaunchAtLoginEnabled() {
+            // 使用 AppleScript 移除登录项
+            let script = """
+                tell application "System Events"
+                    delete login item "MacVimSwitch"
+                end tell
+            """
+            
+            var error: NSDictionary?
+            if let scriptObject = NSAppleScript(source: script) {
+                scriptObject.executeAndReturnError(&error)
+                if let error = error {
+                    print("Error removing login item: \(error)")
+                }
+            }
+        } else {
+            // 使用 AppleScript 添加登录项
+            let script = """
+                tell application "System Events"
+                    make new login item at end with properties {path:"\(bundlePath)", hidden:false}
+                end tell
+            """
+            
+            var error: NSDictionary?
+            if let scriptObject = NSAppleScript(source: script) {
+                scriptObject.executeAndReturnError(&error)
+                if let error = error {
+                    print("Error adding login item: \(error)")
+                }
+            }
+        }
+        
+        // 刷新菜单以更新勾选状态
+        createAndShowMenu()
+    }
+    
+    @objc private func quitApp() {
+        // 使用公共方法来清理资源
+        KeyboardManager.shared.disableEventTap()
+        
+        // 退出应用
+        NSApplication.shared.terminate(self)
+    }
+    
+    // 在 AppDelegate 中添加
+    func applicationWillTerminate(_ notification: Notification) {
+        // 使用公共方法来清理资源
+        KeyboardManager.shared.disableEventTap()
     }
 } 

@@ -12,48 +12,42 @@ MacVimSwitch is a utility for macOS that automatically switches input sources, d
   - Important: Before using, please disable the "Use Shift to switch between English and Chinese/Japanese/Korean/Vietnamese" option in your input method settings
   - Can be disabled in the status bar menu if needed
 - If you don't want to use Shift key switching, on Mac, CapsLock short press to switch input method, long press for caps lock
-- Auto-starts on system login
+- Auto-starts on system login (can be disabled from menu bar)
 
 ## Installation
 
 ```bash
-# brew untap jackiexiao/tap      # Remove the repository from Homebrew if you want to update the formula
-brew tap jackiexiao/tap      # Add the repository to Homebrew
-brew install macvimswitch    # Install MacVimSwitch
-# To start MacVimSwitch now, run:
-launchctl load /opt/homebrew/opt/macvimswitch/Library/LaunchAgents/com.jackiexiao.macvimswitch.plist
-
-# 1. You need to grant Accessibility permissions to the app
-# 2. Go to System Preferences -> Security & Privacy -> Privacy -> Accessibility
-# 3. Add and enable macvimswitch
-
-# To stop MacVimSwitch, run:
-#   launchctl unload /opt/homebrew/opt/macvimswitch/Library/LaunchAgents/com.jackiexiao.macvimswitch.plist
+brew tap jackiexiao/tap
+brew install macvimswitch
 ```
 
-Or build from source:
-```bash
-git clone https://github.com/jackiexiao/macvimswitch
-cd macvimswitch
-swiftc macvimswitch.swift -o macvimswitch
-```
+After installation:
+1. MacVimSwitch will be installed as a standard macOS application
+2. You can find it in:
+   - Spotlight Search (Command + Space)
+   - Launchpad
+   - Applications folder
+3. The app will be configured to start automatically at login (can be disabled from menu bar)
 
 ## Usage
 
-1. After installation, grant Accessibility permissions:
+1. First Launch:
+   - Open MacVimSwitch from Spotlight or Launchpad
+   - Grant Accessibility permissions when prompted
    - Go to System Preferences → Security & Privacy → Privacy → Accessibility
-   - Add and enable macvimswitch
+   - Add and enable MacVimSwitch
 
 2. Important first-time setup:
    - Disable the "Use Shift to switch between English and Chinese" option in your input method settings
    - You can select your preferred Chinese input method from the status bar menu
 
-3. The app will automatically start on system login
-4. Click the keyboard icon in the status bar to:
-   - View instructions
-   - Select your preferred Chinese input method
-   - Enable/Disable Shift key switching (enabled by default)
-   - Quit the application
+3. Menu Bar Options:
+   - Click the keyboard icon in the menu bar to:
+     - View instructions
+     - Select your preferred Chinese input method
+     - Enable/Disable Shift key switching
+     - Enable/Disable launch at login
+     - Quit the application
 
 ## Important Notes
 
@@ -70,17 +64,12 @@ MacVimSwitch offers several advantages over other input source switching solutio
    - No need for application-specific configurations
    - No plugins required for different editors
 
-2. Low Latency
-   - Minimal delay in input method switching
-   - Direct use of macOS APIs for better performance
-   - Efficient event handling
-
-3. Input Method Agnostic
+2. Input Method Agnostic
    - Works with any Chinese/Japanese/Korean/Vietnamese input method
    - Supports popular input methods like Sogou, iFlytek, WeChat Input, etc.
    - Easy to switch between different input methods
 
-4. Flexible Switching Options
+3. Flexible Switching Options
    - Use Shift key for quick switching (enabled by default)
    - Or use CapsLock if you prefer (macOS built-in feature)
    - ESC key always switches to ABC input method (perfect for Vim users)
