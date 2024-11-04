@@ -17,11 +17,23 @@ class Macvimswitch < Formula
 
   def install
     if OS.mac?
-      # 安装完整的 .app 包到 Applications 目录
-      prefix.install "MacVimSwitch.app"
+      unless Dir.exist?("dist/MacVimSwitch.app")
+        odie "MacVimSwitch.app not found in the expected location"
+      end
       
-      # 创建命令行工具的符号链接（可选）
-      bin.install_symlink prefix/"MacVimSwitch.app/Contents/MacOS/macvimswitch" => "macvimswitch"
+      prefix.install Dir["dist/MacVimSwitch.app"]
+      
+      app_path = prefix/"MacVimSwitch.app"
+      unless File.exist?(app_path)
+        odie "Failed to install MacVimSwitch.app"
+      end
+      
+      bin_path = app_path/"Contents/MacOS/macvimswitch"
+      unless File.exist?(bin_path)
+        odie "Executable not found in app bundle"
+      end
+      
+      bin.install_symlink bin_path => "macvimswitch"
     end
   end
 
@@ -55,5 +67,10 @@ class Macvimswitch < Formula
       Or use command line:
         pkill macvimswitch
     EOS
+  end
+
+  # 添加测试方法
+  test do
+    system "#{bin}/macvimswitch", "--version"
   end
 end 
