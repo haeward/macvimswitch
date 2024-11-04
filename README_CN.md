@@ -12,47 +12,42 @@ MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常�
   - 重要提示：使用前请先关闭输入法中的"使用 Shift 切换中英文"选项
   - 如需关闭可在状态栏菜单中设置
 - 温馨提示：如果你不想使用 Shift 键切换输入法，在 Mac 上，CapsLock 短按可以切换输入法，长按才是锁定大写
-- 系统登录时自动启动
+- 系统登录时自动启动（可在菜单栏中关闭）
 
 ## 安装方法
 
-使用 Homebrew 安装：
 ```bash
-# brew untap jackiexiao/tap      # 如果需要更新 formula，先移除软件源
-brew tap jackiexiao/tap      # 添加软件源到 Homebrew
-brew install macvimswitch    # 安装 MacVimSwitch
-# 启动 MacVimSwitch
-launchctl load /opt/homebrew/opt/macvimswitch/Library/LaunchAgents/com.jackiexiao.macvimswitch.plist
-
-# 根据提示授予辅助功能权限
-
-# 停止 MacVimSwitch
-# launchctl unload /opt/homebrew/opt/macvimswitch/Library/LaunchAgents/com.jackiexiao.macvimswitch.plist
+brew tap jackiexiao/tap
+brew install macvimswitch
 ```
 
-或从源码编译：
-```bash
-git clone https://github.com/jackiexiao/macvimswitch
-cd macvimswitch
-swiftc macvimswitch.swift -o macvimswitch
-```
+安装完成后：
+1. MacVimSwitch 将作为标准的 macOS 应用程序安装
+2. 你可以通过以下方式找到并启动：
+   - Spotlight 搜索（Command + 空格）
+   - 启动台（Launchpad）
+   - 应用程序文件夹
+3. 应用程序默认会在系统登录时自动启动（可在菜单栏中关闭）
 
 ## 使用方法
 
-1. 安装后需要授予辅助功能权限：
+1. 首次启动：
+   - 通过 Spotlight 或启动台打开 MacVimSwitch
+   - 根据提示授予辅助功能权限
    - 打开系统偏好设置 → 安全性与隐私 → 隐私 → 辅助功能
-   - 添加并启用 macvimswitch
+   - 添加并启用 MacVimSwitch
 
 2. 首次使用重要设置：
    - 关闭输入法中的"使用 Shift 切换中英文"选项，避免冲突
    - 可以在状态栏菜单中选择您偏好的中文输入法
 
-3. 程序会在系统登录时自动启动
-4. 点击状态栏的键盘图标可以：
-   - 查看使用说明
-   - 选择偏好的中文输入法
-   - 开启/关闭 Shift 键切换功能（默认开启）
-   - 退出应用程序
+3. 菜单栏选项：
+   - 点击状态栏的键盘图标可以：
+     - 查看使用说明
+     - 选择偏好的中文输入法
+     - 开启/关闭 Shift 键切换功能
+     - 开启/关闭开机自动启动
+     - 退出应用程序
 
 ## 注意事项
 
@@ -136,37 +131,15 @@ MacVimSwitch 相比其他输入法切换方案有以下优势：
    - 无需针对不同应用进行配置
    - 不需要为不同编辑器安装插件
 
-2. 低延迟
-   - 输入法切换延迟极低
-   - 直接使用 macOS API，性能更好
-   - 高效的事件处理机制
-
-3. 输入法无关性
+2. 输入法无关性
    - 支持任何中文输入法
    - 兼容搜狗、讯飞、微信输入法等主流输入法
    - 可以方便地在不同输入法间切换
 
-4. 灵活的切换选项
+3. 灵活的切换选项
    - 使用 Shift 键快速切换（默认开启）
    - 或使用 CapsLock（macOS 内置功能）
    - ESC 键始终切换到英文（对 Vim 用户很友好）
-
-### 与其他方案的对比
-
-1. 相比 input-source-switcher：
-   - 更低的延迟
-   - 无需命令行调用
-   - 更好的 macOS 集成
-
-2. 相比 im-select（smartim）：
-   - 可在所有应用程序中使用
-   - 不需要编辑器特定插件
-   - 切换机制更可靠
-
-3. 相比 swim：
-   - 安装配置更简单
-   - 性能更好
-   - 界面更友好
 
 ### 输入法切换选项
 
