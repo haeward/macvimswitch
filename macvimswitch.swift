@@ -3,72 +3,171 @@ import Carbon
 import Foundation
 import ServiceManagement
 
+// 添加 InputSource 类
+class InputSource: Equatable {
+    static func == (lhs: InputSource, rhs: InputSource) -> Bool {
+        return lhs.id == rhs.id
+    }
+
+    let tisInputSource: TISInputSource
+
+    var id: String {
+        return tisInputSource.id
+    }
+
+    var name: String {
+        return tisInputSource.name
+    }
+
+    var isCJKV: Bool {
+        if let lang = tisInputSource.sourceLanguages.first {
+            return lang == "ko" || lang == "ja" || lang == "vi" || lang.hasPrefix("zh")
+        }
+        return false
+    }
+
+    init(tisInputSource: TISInputSource) {
+        self.tisInputSource = tisInputSource
+    }
+
+    func select() {
+        let currentSource = InputSourceManager.getCurrentSource()
+        if currentSource.id == self.id {
+            return
+        }
+        
+        TISSelectInputSource(tisInputSource)
+        usleep(InputSourceManager.uSeconds)
+        
+        if self.isCJKV {
+            if let nonCJKV = InputSourceManager.nonCJKVSource() {
+                TISSelectInputSource(nonCJKV.tisInputSource)
+                usleep(InputSourceManager.uSeconds)
+                
+                let newCurrentSource = InputSourceManager.getCurrentSource()
+                if newCurrentSource.id == nonCJKV.id {
+                    InputSourceManager.selectPrevious()
+                } else {
+                    TISSelectInputSource(tisInputSource)
+                }
+            }
+        }
+    }
+}
+
+// 修改 InputSourceManager 类
 class InputSourceManager {
-    static var keyboardOnly = true
-    static var uSeconds: UInt32 = 20000
+    static var inputSources: [InputSource] = []
+    static var uSeconds: UInt32 = 12000
+    static var keyboardOnly: Bool = true
     
     static func initialize() {
-        _ = TISCreateInputSourceList(nil, true)?.takeRetainedValue()
-    }
-    
-    static func getCurrentSource() -> TISInputSource {
-        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else {
-            fatalError("Failed to get current input source")
+        let inputSourceNSArray = TISCreateInputSourceList(nil, false)
+            .takeRetainedValue() as NSArray
+        var inputSourceList = inputSourceNSArray as! [TISInputSource]
+        if self.keyboardOnly {
+            inputSourceList = inputSourceList.filter({ $0.category == TISInputSource.Category.keyboardInputSource })
         }
-        return source
+
+        inputSources = inputSourceList.filter({ $0.isSelectable })
+            .map { InputSource(tisInputSource: $0) }
     }
     
-    static func getInputSource(name: String) -> TISInputSource? {
-        let inputSourceNsArray = TISCreateInputSourceList(
-            [kTISPropertyInputSourceID: name] as CFDictionary,
-            false
-        )?.takeRetainedValue() as NSArray?
+    static func getCurrentSource() -> InputSource {
+        return InputSource(
+            tisInputSource: TISCopyCurrentKeyboardInputSource().takeRetainedValue()
+        )
+    }
+    
+    static func getInputSource(name: String) -> InputSource? {
+        return inputSources.first(where: { $0.id == name })
+    }
+    
+    static func nonCJKVSource() -> InputSource? {
+        return inputSources.first(where: { !$0.isCJKV })
+    }
+
+    static func selectPrevious() {
+        let shortcut = getSelectPreviousShortcut()
+        if (shortcut == nil) {
+            print("Shortcut to select previous input source does not exist")
+            return
+        }
         
-        guard let inputSourceArray = inputSourceNsArray,
-              let inputSource = inputSourceArray.firstObject,
-              CFGetTypeID(inputSource as CFTypeRef) == TISInputSourceGetTypeID() else {
+        let src = CGEventSource(stateID: .hidSystemState)
+        let key = CGKeyCode(shortcut!.0)
+        let flag = CGEventFlags(rawValue: shortcut!.1)
+
+        let down = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: true)!
+        down.flags = flag
+        down.post(tap: .cghidEventTap)
+
+        let up = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: false)!
+        up.post(tap: .cghidEventTap)
+        usleep(uSeconds)
+    }
+
+    static func getSelectPreviousShortcut() -> (Int, UInt64)? {
+        guard let dict = UserDefaults.standard.persistentDomain(forName: "com.apple.symbolichotkeys"),
+              let symbolichotkeys = dict["AppleSymbolicHotKeys"] as? NSDictionary,
+              let symbolichotkey = symbolichotkeys["60"] as? NSDictionary,
+              (symbolichotkey["enabled"] as? NSNumber)?.intValue == 1,
+              let value = symbolichotkey["value"] as? NSDictionary,
+              let parameters = value["parameters"] as? NSArray else {
             return nil
         }
         
-        return (inputSource as! TISInputSource)
+        return ((parameters[1] as! NSNumber).intValue,
+                (parameters[2] as! NSNumber).uint64Value)
     }
-    
-    static func isCJKVSource(_ source: TISInputSource) -> Bool {
-        guard let langRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceLanguages),
-              let languages = Unmanaged<CFArray>.fromOpaque(langRef).takeUnretainedValue() as? [String],
-              let lang = languages.first else {
-            return false
-        }
-        
-        return lang == "ko" || lang == "ja" || lang == "vi" || lang.hasPrefix("zh")
+
+    static func isCJKVSource(_ source: InputSource) -> Bool {
+        return source.isCJKV
     }
-    
-    static func getNonCJKVSource() -> TISInputSource? {
-        guard let inputSources = TISCreateInputSourceList(nil, true)?.takeRetainedValue() as? [TISInputSource] else {
-            return nil
-        }
-        
-        return inputSources.first { source in
-            guard let categoryRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory) else {
-                return false
-            }
-            let category = (Unmanaged<CFString>.fromOpaque(categoryRef).takeUnretainedValue() as NSString) as String
-            return category == (kTISCategoryKeyboardInputSource as String) && !isCJKVSource(source)
+
+    static func getSourceID(_ source: InputSource) -> String {
+        return source.id
+    }
+
+    static func getNonCJKVSource() -> InputSource? {
+        return nonCJKVSource()
+    }
+}
+
+// 添加 TISInputSource 扩展
+extension TISInputSource {
+    enum Category {
+        static var keyboardInputSource: String {
+            return kTISCategoryKeyboardInputSource as String
         }
     }
-    
-    static func getSourceID(_ source: TISInputSource) -> String? {
-        guard let sourceIdRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else {
-            return nil
+
+    private func getProperty(_ key: CFString) -> AnyObject? {
+        let cfType = TISGetInputSourceProperty(self, key)
+        if (cfType != nil) {
+            return Unmanaged<AnyObject>.fromOpaque(cfType!).takeUnretainedValue()
         }
-        return Unmanaged<CFString>.fromOpaque(sourceIdRef).takeUnretainedValue() as String
+        return nil
     }
-    
-    static func getSourceName(_ source: TISInputSource) -> String? {
-        guard let nameRef = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) else {
-            return nil
-        }
-        return Unmanaged<CFString>.fromOpaque(nameRef).takeUnretainedValue() as String
+
+    var id: String {
+        return getProperty(kTISPropertyInputSourceID) as! String
+    }
+
+    var name: String {
+        return getProperty(kTISPropertyLocalizedName) as! String
+    }
+
+    var category: String {
+        return getProperty(kTISPropertyInputSourceCategory) as! String
+    }
+
+    var isSelectable: Bool {
+        return getProperty(kTISPropertyInputSourceIsSelectCapable) as! Bool
+    }
+
+    var sourceLanguages: [String] {
+        return getProperty(kTISPropertyInputSourceLanguages) as! [String]
     }
 }
 
@@ -174,61 +273,24 @@ class KeyboardManager {
     
     func switchInputMethod() {
         let currentSource = InputSourceManager.getCurrentSource()
-        guard let currentSourceId = InputSourceManager.getSourceID(currentSource) else {
-            return
-        }
         
-        // 如果还没有找到中文输入法，尝试初始化
-        if lastInputSource == nil && currentSourceId != abcInputSource {
-            lastInputSource = currentSourceId
-        }
-        
-        if let lastSource = lastInputSource {
-            if currentSourceId == abcInputSource {
+        if let lastSource = lastInputSource,
+           let targetSource = InputSourceManager.getInputSource(name: lastSource) {
+            if currentSource.id == abcInputSource {
                 // 从 ABC 切换到上一个输入法
-                if let source = InputSourceManager.getInputSource(name: lastSource) {
-                    if InputSourceManager.isCJKVSource(source) {
-                        switchToCJKV(source)
-                    } else {
-                        TISSelectInputSource(source)
-                        usleep(InputSourceManager.uSeconds)
-                    }
-                }
+                targetSource.select()
             } else {
                 // 从其他输入法切换到 ABC
                 if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
-                    // 保存当前输入法作为上一个输入法
-                    lastInputSource = currentSourceId
-                    
-                    // 使用特殊序列切换到 ABC
-                    TISSelectInputSource(abcSource)
-                    usleep(InputSourceManager.uSeconds)
-                    
-                    // 验证切换结果
-                    let finalSource = InputSourceManager.getCurrentSource()
-                    if let finalSourceId = InputSourceManager.getSourceID(finalSource),
-                       finalSourceId != abcInputSource {
-                        // 如果失败，尝试另一种切换序列
-                        if let currentSource = InputSourceManager.getInputSource(name: currentSourceId),
-                           InputSourceManager.isCJKVSource(currentSource) {
-                            if let nonCJKV = InputSourceManager.getNonCJKVSource() {
-                                TISSelectInputSource(nonCJKV)
-                                usleep(InputSourceManager.uSeconds)
-                                TISSelectInputSource(abcSource)
-                                usleep(InputSourceManager.uSeconds)
-                            }
-                        } else {
-                            TISSelectInputSource(abcSource)
-                            usleep(InputSourceManager.uSeconds)
-                        }
-                    }
+                    lastInputSource = currentSource.id
+                    InputSource(tisInputSource: abcSource.tisInputSource).select()
                 }
             }
         } else {
-            if currentSourceId != abcInputSource {
-                lastInputSource = currentSourceId
+            if currentSource.id != abcInputSource {
+                lastInputSource = currentSource.id
             }
-            initializeInputSources()
+            InputSourceManager.initialize()
         }
         
         delegate?.keyboardManagerDidUpdateState()
@@ -289,42 +351,20 @@ class KeyboardManager {
     func switchToABC() {
         if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
             let currentSource = InputSourceManager.getCurrentSource()
-            if let currentSourceId = InputSourceManager.getSourceID(currentSource),
-               currentSourceId != abcInputSource {
-                // 保存当前输入法
-                lastInputSource = currentSourceId
-                
-                // 使用特殊序列切换到 ABC
-                TISSelectInputSource(abcSource)
-                usleep(InputSourceManager.uSeconds)
-                
-                // 验证切换结果
-                let finalSource = InputSourceManager.getCurrentSource()
-                if let finalSourceId = InputSourceManager.getSourceID(finalSource),
-                   finalSourceId != abcInputSource {
-                    // 如果失败，尝试另一种切换序列
-                    if InputSourceManager.isCJKVSource(currentSource) {
-                        if let nonCJKV = InputSourceManager.getNonCJKVSource() {
-                            TISSelectInputSource(nonCJKV)
-                            usleep(InputSourceManager.uSeconds)
-                            TISSelectInputSource(abcSource)
-                            usleep(InputSourceManager.uSeconds)
-                        }
-                    }
-                }
+            if currentSource.id != abcInputSource {
+                lastInputSource = currentSource.id
+                InputSource(tisInputSource: abcSource.tisInputSource).select()
             }
-            
-            delegate?.keyboardManagerDidUpdateState()
         }
     }
     
     func setLastInputSource(_ sourceId: String) {
         if let source = InputSourceManager.getInputSource(name: sourceId) {
             // 直接切到选择的输入法
-            if InputSourceManager.isCJKVSource(source) {
+            if source.isCJKV {
                 switchToCJKV(source)
             } else {
-                TISSelectInputSource(source)
+                TISSelectInputSource(source.tisInputSource)
                 usleep(InputSourceManager.uSeconds)
             }
             
@@ -338,29 +378,28 @@ class KeyboardManager {
     }
     
     // 添加新的辅助方法来处理 CJKV 输入法切换
-    private func switchToCJKV(_ source: TISInputSource) {
+    private func switchToCJKV(_ source: InputSource) {
         // 第一步：切换到目标输入法
-        TISSelectInputSource(source)
+        TISSelectInputSource(source.tisInputSource)
         usleep(InputSourceManager.uSeconds)
         
         // 第二步：切换到 ABC
         if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
-            TISSelectInputSource(abcSource)
+            TISSelectInputSource(abcSource.tisInputSource)
             usleep(InputSourceManager.uSeconds)
             
             // 第三步：再切回目标输入法
-            TISSelectInputSource(source)
+            TISSelectInputSource(source.tisInputSource)
             usleep(InputSourceManager.uSeconds)
             
             // 第四步：验证切换结果
             let finalSource = InputSourceManager.getCurrentSource()
-            if let finalSourceId = InputSourceManager.getSourceID(finalSource),
-               finalSourceId != InputSourceManager.getSourceID(source) {
-                // 如果切换失败，尝试使用另一种序列
-                if let nonCJKV = InputSourceManager.getNonCJKVSource() {
-                    TISSelectInputSource(nonCJKV)
+            if finalSource.id != source.id {
+                // 如果失败，尝试使用另一种序列
+                if let nonCJKV = InputSourceManager.nonCJKVSource() {
+                    TISSelectInputSource(nonCJKV.tisInputSource)
                     usleep(InputSourceManager.uSeconds)
-                    TISSelectInputSource(source)
+                    TISSelectInputSource(source.tisInputSource)
                     usleep(InputSourceManager.uSeconds)
                 }
             }
