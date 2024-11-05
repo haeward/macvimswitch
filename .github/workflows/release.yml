@@ -17,16 +17,17 @@ jobs:
       with:
         xcode-version: latest-stable
         
-    - name: Create App Bundle
+    - name: Build Universal App
       run: |
         # 创建目录结构
         mkdir -p dist/MacVimSwitch.app/Contents/{MacOS,Resources}
         
-        # 编译
+        # 构建通用二进制
         swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch macvimswitch.swift \
           -framework Cocoa \
           -framework Carbon \
           -target arm64-apple-macos11 \
+          -target x86_64-apple-macos11 \
           -O \
           -whole-module-optimization \
           -Xlinker -rpath \
@@ -98,10 +99,22 @@ jobs:
         # 使用自签名
         codesign --force --deep --sign - --entitlements entitlements.plist dist/MacVimSwitch.app
 
-    - name: Create DMG
+    - name: Create DMG with Installation Guide
       run: |
+        # 创建临时挂载点
+        mkdir -p /tmp/dmg
+        
+        # 创建应用程序文件夹符号链接
+        ln -s /Applications /tmp/dmg/Applications
+        
+        # 复制应用
+        cp -r dist/MacVimSwitch.app /tmp/dmg/
+        
         # 创建 DMG
-        hdiutil create -volname "MacVimSwitch" -srcfolder dist/MacVimSwitch.app -ov -format UDZO MacVimSwitch.dmg
+        hdiutil create -volname "MacVimSwitch" -srcfolder /tmp/dmg -ov -format UDZO MacVimSwitch.dmg
+        
+        # 清理
+        rm -rf /tmp/dmg
 
     - name: Create Release
       id: create_release
@@ -133,16 +146,23 @@ jobs:
       with:
         files: MacVimSwitch.dmg
         body: |
+          Universal Binary (支持 Intel 和 Apple Silicon Mac)
+          
+          安装方法：
+          1. 双击打开 DMG 文件
+          2. 将 MacVimSwitch 拖入 Applications 文件夹
+          3. 从 Applications 文件夹打开 MacVimSwitch
+          
+          首次使用说明：
+          1. 右键点击应用选择"打开"
+          2. 点击"打开"确认运行
+          3. 在系统偏好设置中授予必要权限
+          
           SHA256: ${{ env.DMG_SHA256 }}
           
           You can verify the SHA256 checksum of the DMG file using:
           ```bash
           shasum -a 256 MacVimSwitch.dmg
           ```
-          
-          Note: This is an unsigned application. When first opening it:
-          1. Right-click the app and select "Open"
-          2. Click "Open" in the security dialog
-          3. Grant necessary permissions in System Preferences > Security & Privacy
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
