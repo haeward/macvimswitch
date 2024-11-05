@@ -121,6 +121,13 @@ swiftc macvimswitch.swift -o macvimswitch
 ./macvimswitch
 ```
 
+Build for release
+```bash
+./build.sh --create-dmg
+tccutil reset All com.jackiexiao.macvimswitch # Reset permissions
+# open MacVimSwitch.dmg
+```
+
 ### Contributing
 
 1. Fork the repository

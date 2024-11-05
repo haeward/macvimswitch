@@ -99,6 +99,13 @@ swiftc macvimswitch.swift -o macvimswitch
 ./macvimswitch
 ```
 
+构建发布版本：
+```bash
+./build.sh --create-dmg
+tccutil reset All com.jackiexiao.macvimswitch # Reset permissions
+# open MacVimSwitch.dmg
+```
+
 ### 贡献代码
 
 1. Fork 本仓库
