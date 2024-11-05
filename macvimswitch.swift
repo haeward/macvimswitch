@@ -32,25 +32,28 @@ class InputSource: Equatable {
 
     func select() {
         let currentSource = InputSourceManager.getCurrentSource()
-        if currentSource.id == self.id {
-            return
-        }
+        if currentSource.id == self.id { return }
         
+        // 简化 CJKV 输入法切换逻辑
+        if self.isCJKV {
+            switchCJKVSource()
+        } else {
+            TISSelectInputSource(tisInputSource)
+            usleep(InputSourceManager.uSeconds)
+        }
+    }
+
+    private func switchCJKVSource() {
+        // 直接切换到目标输入法
         TISSelectInputSource(tisInputSource)
         usleep(InputSourceManager.uSeconds)
         
-        if self.isCJKV {
-            if let nonCJKV = InputSourceManager.nonCJKVSource() {
-                TISSelectInputSource(nonCJKV.tisInputSource)
-                usleep(InputSourceManager.uSeconds)
-                
-                let newCurrentSource = InputSourceManager.getCurrentSource()
-                if newCurrentSource.id == nonCJKV.id {
-                    InputSourceManager.selectPrevious()
-                } else {
-                    TISSelectInputSource(tisInputSource)
-                }
-            }
+        // 如果切换失败，尝试通过非 CJKV 输入法中转
+        if InputSourceManager.getCurrentSource().id != self.id,
+           let nonCJKV = InputSourceManager.nonCJKVSource() {
+            TISSelectInputSource(nonCJKV.tisInputSource)
+            usleep(InputSourceManager.uSeconds)
+            TISSelectInputSource(tisInputSource)
         }
     }
 }
@@ -277,46 +280,55 @@ class KeyboardManager {
         if let lastSource = lastInputSource,
            let targetSource = InputSourceManager.getInputSource(name: lastSource) {
             if currentSource.id == abcInputSource {
-                // 从 ABC 切换到上一个输入法
                 targetSource.select()
-            } else {
-                // 从其他输入法切换到 ABC
-                if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
-                    lastInputSource = currentSource.id
-                    InputSource(tisInputSource: abcSource.tisInputSource).select()
-                }
+            } else if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
+                lastInputSource = currentSource.id
+                abcSource.select()
             }
         } else {
-            if currentSource.id != abcInputSource {
-                lastInputSource = currentSource.id
-            }
-            InputSourceManager.initialize()
+            updateLastInputSource(currentSource)
         }
         
         delegate?.keyboardManagerDidUpdateState()
     }
     
-    // 修改方法来处理其他修饰键的状态
+    private func updateLastInputSource(_ currentSource: InputSource) {
+        if currentSource.id != abcInputSource {
+            lastInputSource = currentSource.id
+        }
+        InputSourceManager.initialize()
+    }
+    
+    // 优化事件处理逻辑
     func handleModifierFlags(_ flags: CGEventFlags) {
         let currentTime = Date().timeIntervalSince1970
+        let isShiftKey = flags.rawValue == 0x20102
+        let isShiftRelease = flags.rawValue == 0x100
         
-        if flags.rawValue == 0x20102 {  // Shift 按下
-            if !isShiftPressed {
-                isShiftPressed = true
-                shiftPressStartTime = currentTime
-                hasOtherKeysDuringShift = false
-            }
-        } else if flags.rawValue == 0x100 {  // Shift 释放
-            if isShiftPressed {
-                let pressDuration = currentTime - shiftPressStartTime
-                
-                if useShiftSwitch && !hasOtherKeysDuringShift && pressDuration < 0.5 {
-                    switchInputMethod()
-                }
-            }
-            isShiftPressed = false
+        if isShiftKey {
+            handleShiftPress(currentTime)
+        } else if isShiftRelease {
+            handleShiftRelease(currentTime)
+        }
+    }
+    
+    private func handleShiftPress(_ time: TimeInterval) {
+        if !isShiftPressed {
+            isShiftPressed = true
+            shiftPressStartTime = time
             hasOtherKeysDuringShift = false
         }
+    }
+    
+    private func handleShiftRelease(_ time: TimeInterval) {
+        if isShiftPressed {
+            let pressDuration = time - shiftPressStartTime
+            if useShiftSwitch && !hasOtherKeysDuringShift && pressDuration < 0.5 {
+                switchInputMethod()
+            }
+        }
+        isShiftPressed = false
+        hasOtherKeysDuringShift = false
     }
     
     private func cleanupKeySequence(_ currentTime: TimeInterval) {
