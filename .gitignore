@@ -2,3 +2,5 @@ macism
 macvimswitch
 .vscode/
 temp*
+.DS_Store
+dist*

@@ -412,6 +412,12 @@ private func eventCallback(
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
+
+// 添加这些行来确保应用程序正确激活
+app.setActivationPolicy(.accessory)  // 将应用程序设置为配件类型
+NSApp.activate(ignoringOtherApps: true)  // 确保应用程序被激活
+
+// 运行应用程序
 app.run()
 
 class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
@@ -419,6 +425,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
     private var menu: NSMenu?  // 添加菜单属性
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 确保应用程序被激活
+        NSApp.activate(ignoringOtherApps: true)
+        
         // 确保应用不会随终端退出
         ProcessInfo.processInfo.enableSuddenTermination()
         
@@ -426,23 +435,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         KeyboardManager.shared.delegate = self
         
         // 先设置状态栏
-        setupStatusBarItem()
+        DispatchQueue.main.async { [weak self] in
+            self?.setupStatusBarItem()
+        }
+        
         // 然后启动键盘管理器
         KeyboardManager.shared.start()
         
         // 显示初始使用提示
-        showInitialInstructions()
+        DispatchQueue.main.async { [weak self] in
+            self?.showInitialInstructions()
+        }
     }
     
     private func setupStatusBarItem() {
         if let button = statusItem.button {
             updateStatusBarIcon()
-            
-            // 直接设置菜单，而不是使用 action
             createAndShowMenu()
-            
-            // 确保按钮可用
             button.isEnabled = true
+        } else {
+            print("错误：无法创建状态栏按钮")
         }
     }
     
