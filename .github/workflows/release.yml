@@ -4,54 +4,33 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }} for ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            artifact_name: MacVimSwitch-x86_64
-            asset_name: MacVimSwitch-x86_64
-            arch: x86_64
-          - os: macos-latest
-            artifact_name: MacVimSwitch-arm64
-            asset_name: MacVimSwitch-arm64
-            arch: arm64
-
-    steps:
-    - uses: actions/checkout@v4
+    runs-on: macos-latest
     
-    - name: Set up Xcode
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: latest-stable
-
-    - name: Get version
-      id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-    - name: Build Binary
+        
+    - name: Create App Bundle
       run: |
-        mkdir -p build
-        target=""
-        if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
-          export target="x86_64"
-        else
-          export target="arm64"
-        fi
-        swiftc -o build/macvimswitch macvimswitch.swift -framework Cocoa -framework Carbon -target ${target}-apple-macos11
-
-    - name: Create Package
-      run: |
-        # 创建标准的 macOS 应用包结构
+        # 创建目录结构
         mkdir -p dist/MacVimSwitch.app/Contents/{MacOS,Resources}
         
-        # 复制可执行文件
-        cp build/macvimswitch dist/MacVimSwitch.app/Contents/MacOS/
+        # 编译
+        swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch macvimswitch.swift \
+          -framework Cocoa \
+          -framework Carbon \
+          -target arm64-apple-macos11 \
+          -O \
+          -whole-module-optimization \
+          -Xlinker -rpath \
+          -Xlinker @executable_path/../Frameworks
         
         # 创建 Info.plist
         cat > dist/MacVimSwitch.app/Contents/Info.plist << EOL
@@ -70,7 +49,7 @@ jobs:
             <key>CFBundlePackageType</key>
             <string>APPL</string>
             <key>CFBundleShortVersionString</key>
-            <string>${{ steps.get_version.outputs.VERSION }}</string>
+            <string>${GITHUB_REF#refs/tags/v}</string>
             <key>LSMinimumSystemVersion</key>
             <string>11.0</string>
             <key>LSUIElement</key>
@@ -79,164 +58,91 @@ jobs:
             <true/>
             <key>LSApplicationCategoryType</key>
             <string>public.app-category.utilities</string>
+            <key>NSPrincipalClass</key>
+            <string>NSApplication</string>
+            <key>NSAppleEventsUsageDescription</key>
+            <string>MacVimSwitch needs to control system events to manage input sources.</string>
+            <key>NSAppleScriptEnabled</key>
+            <true/>
+            <key>LSBackgroundOnly</key>
+            <false/>
         </dict>
         </plist>
         EOL
         
-        # 添加应用图标（如果有的话）
-        # cp AppIcon.icns dist/MacVimSwitch.app/Contents/Resources/
+        # 创建 entitlements.plist
+        cat > entitlements.plist << EOL
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>com.apple.security.automation.apple-events</key>
+            <true/>
+            <key>com.apple.security.temporary-exception.apple-events</key>
+            <array>
+                <string>com.apple.systemevents</string>
+            </array>
+            <key>com.apple.security.cs.allow-jit</key>
+            <true/>
+            <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+            <true/>
+            <key>com.apple.security.cs.disable-library-validation</key>
+            <true/>
+        </dict>
+        </plist>
+        EOL
         
-        # 对应用进行签名
-        codesign --force --deep --sign - dist/MacVimSwitch.app
+        # 设置执行权限
+        chmod +x dist/MacVimSwitch.app/Contents/MacOS/macvimswitch
         
-        # 创建压缩包前验证签名
-        codesign --verify -vvvv dist/MacVimSwitch.app
-        
-        # 创建压缩包
-        cd dist
-        zip -r ../MacVimSwitch-${{ matrix.arch }}.zip MacVimSwitch.app
-        cd ..
+        # 使用自签名
+        codesign --force --deep --sign - --entitlements entitlements.plist dist/MacVimSwitch.app
+
+    - name: Create DMG
+      run: |
+        # 创建 DMG
+        hdiutil create -volname "MacVimSwitch" -srcfolder dist/MacVimSwitch.app -ov -format UDZO MacVimSwitch.dmg
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./MacVimSwitch.dmg
+        asset_name: MacVimSwitch.dmg
+        asset_content_type: application/x-apple-diskimage
 
     - name: Calculate SHA256
       run: |
-        shasum -a 256 MacVimSwitch-${{ matrix.arch }}.zip | cut -d ' ' -f 1 > sha256-${{ matrix.arch }}.txt
-      id: sha256
+        echo "DMG_SHA256=$(shasum -a 256 MacVimSwitch.dmg | cut -d ' ' -f 1)" >> $GITHUB_ENV
 
-    - name: Upload SHA256
-      uses: actions/upload-artifact@v4
+    - name: Add SHA256 to Release
+      uses: softprops/action-gh-release@v1
       with:
-        name: sha256-${{ matrix.arch }}
-        path: sha256-${{ matrix.arch }}.txt
-
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.asset_name }}
-        path: MacVimSwitch-${{ matrix.arch }}.zip
-
-  release:
-    name: Create Release
-    needs: [build, verify-package]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Get version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: MacVimSwitch ${{ steps.get_version.outputs.VERSION }}
-          tag_name: ${{ steps.get_version.outputs.VERSION }}
-          files: |
-            MacVimSwitch-x86_64/MacVimSwitch-x86_64.zip
-            MacVimSwitch-arm64/MacVimSwitch-arm64.zip
-          body: |
-            MacVimSwitch ${{ steps.get_version.outputs.VERSION }}
-            
-            - ARM64 (Apple Silicon)
-            - x86_64 (Intel)
-
-      - name: Download SHA256s
-        uses: actions/download-artifact@v4
-        with:
-          pattern: sha256-*
-          merge-multiple: true
-
-      - name: Update Formula
-        run: |
-          ARM64_SHA256=$(cat sha256-arm64.txt)
-          X86_64_SHA256=$(cat sha256-x86_64.txt)
-          VERSION=${GITHUB_REF#refs/tags/v}
+        files: MacVimSwitch.dmg
+        body: |
+          SHA256: ${{ env.DMG_SHA256 }}
           
-          # Create updated formula
-          sed -i "s/PLACEHOLDER_VERSION/$VERSION/" macvimswitch.rb
-          sed -i "s/PLACEHOLDER_ARM64_SHA256/$ARM64_SHA256/" macvimswitch.rb
-          sed -i "s/PLACEHOLDER_X86_64_SHA256/$X86_64_SHA256/" macvimswitch.rb
-
-      - name: Upload Updated Formula
-        uses: actions/upload-artifact@v4
-        with:
-          name: updated-formula
-          path: macvimswitch.rb
-
-  update-homebrew:
-    name: Update Homebrew Tap
-    needs: [release]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Download updated formula
-        uses: actions/download-artifact@v4
-        with:
-          name: updated-formula
-          path: ./
-
-      - name: Checkout homebrew tap
-        uses: actions/checkout@v4
-        with:
-          repository: 'jackiexiao/homebrew-tap'
-          token: ${{ secrets.TAP_TOKEN }}
-          path: homebrew-tap
-
-      - name: Update Formula
-        run: |
-          cd homebrew-tap
-          git config user.name "GitHub Action"
-          git config user.email "action@github.com"
+          You can verify the SHA256 checksum of the DMG file using:
+          ```bash
+          shasum -a 256 MacVimSwitch.dmg
+          ```
           
-          branch_name="update-macvimswitch-${{ steps.get_version.outputs.VERSION }}"
-          git checkout -b $branch_name
-          
-          cp ../macvimswitch.rb Formula/
-          
-          git add Formula/macvimswitch.rb
-          git commit -m "feat: update macvimswitch to ${{ steps.get_version.outputs.VERSION }}"
-          git push origin $branch_name
-
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.TAP_TOKEN }}
-          path: homebrew-tap
-          title: "feat: update macvimswitch to ${{ steps.get_version.outputs.VERSION }}"
-          body: |
-            Updates MacVimSwitch to version ${{ steps.get_version.outputs.VERSION }}
-            
-            - Updates version to ${{ steps.get_version.outputs.VERSION }}
-            - Updates SHA256 hashes for both ARM64 and x86_64 builds
-            
-            This PR was automatically generated by GitHub Actions.
-          base: main
-          delete-branch: true
-
-  verify-package:
-    name: Verify Package
-    needs: build
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        include:
-          - arch: x86_64
-          - arch: arm64
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: MacVimSwitch-${{ matrix.arch }}
-          
-      - name: Verify Package
-        run: |
-          # 解压并验证包内容
-          unzip MacVimSwitch-${{ matrix.arch }}.zip
-          test -d "MacVimSwitch.app" || exit 1
-          test -x "MacVimSwitch.app/Contents/MacOS/macvimswitch" || exit 1
+          Note: This is an unsigned application. When first opening it:
+          1. Right-click the app and select "Open"
+          2. Click "Open" in the security dialog
+          3. Grant necessary permissions in System Preferences > Security & Privacy
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
