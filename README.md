@@ -2,16 +2,16 @@
 
 [English](README.md) | [中文说明](README_CN.md)
 
-MacVimSwitch is a utility for macOS that automatically switches input sources, designed specifically for Vim users and those who frequently switch between CJKV(Chinese/Japanese/Korean/Vietnamese) input methods.
+MacVimSwitch is a utility for macOS that automatically switches input sources, designed specifically for Vim users and those who frequently switch between CJKV(Chinese/Japanese/Korean/Vietnamese) input methods. Thx to [macism](https://github.com/laishulu/macism) for the input method switching solution.
 
 ## Features
 
 - Automatically switches to ABC input method when pressing ESC
-- Runs in the background with a status bar icon
-- Built-in Shift key switching feature (enabled by default)
+- Built-in Shift key switching feature (enabled by default), switch between ABC English input method and Chinese/Japanese/Korean/Vietnamese input method
   - Important: Before using, please disable the "Use Shift to switch between English and Chinese/Japanese/Korean/Vietnamese" option in your input method settings
   - Can be disabled in the status bar menu if needed
 - If you don't want to use Shift key switching, on Mac, CapsLock short press to switch input method, long press for caps lock
+- Runs in the background with a status bar icon
 - Auto-starts on system login (can be disabled from menu bar)
 
 ## Installation
@@ -29,6 +29,8 @@ Download from [GitHub Releases](https://github.com/Jackiexiao/macvimswitch/relea
 2. Important first-time setup:
    - Disable the "Use Shift to switch between English and Chinese" option in your input method settings
    - You can select your preferred Chinese input method from the status bar menu
+   - You must enable the MacOS keyboard shortcut for "Select the previous input source", which can be found in "Preference -> Keyboard -> Shortcuts -> Input Source".
+   - The shortcut can be anything as your wish, macism will read the shortcut from that entry and trigger it by emulation when needed. Just to make sure you have already enabled the shortcut.
 
 3. Menu Bar Options:
    - Click the keyboard icon in the menu bar to:
@@ -38,11 +40,6 @@ Download from [GitHub Releases](https://github.com/Jackiexiao/macvimswitch/relea
      - Enable/Disable launch at login
      - Quit the application
 
-## Important Notes
-
-1. Make sure to disable the "Use Shift to switch between English and Chinese" option in your input method settings to avoid conflicts
-2. The app requires accessibility permissions to function properly
-3. A system restart might be required after granting permissions
 
 ## Why MacVimSwitch?
 
