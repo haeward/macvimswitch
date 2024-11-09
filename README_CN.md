@@ -4,6 +4,8 @@
 
 MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常需要切换中文输入法的用户设计。感谢 [macism](https://github.com/laishulu/macism) 提供的输入法切换方案。
 
+欢迎添加微信： less-wrong 反馈问题和建议
+
 ## 功能特点
 
 - 按 ESC 键时自动切换到 ABC 英文输入法
