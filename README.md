@@ -15,6 +15,9 @@ MacVimSwitch is a utility for macOS that automatically switches input sources, d
 - Auto-starts on system login (can be disabled from menu bar)
 - Recommend: Use [inputsource.pro](https://inputsource.pro/) to automatically switch input method for each application. You can set a default input method for each application, for example, set the default input method to English in the browser and to Chinese in Vim.
 
+![26621732330717_ pic](https://github.com/user-attachments/assets/9919de3b-461d-4a7b-b7de-8a8ae49ed661)
+
+
 ## Installation
 
 Download from [GitHub Releases](https://github.com/Jackiexiao/macvimswitch/releases) and install it manually.
