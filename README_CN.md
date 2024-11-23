@@ -17,6 +17,8 @@ MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常�
 - 系统登录时自动启动（可在菜单栏中关闭）
 - 推荐：配合上 [inputsource.pro](https://inputsource.pro/)这类能设置每个应用默认输入法的程序使用体验更佳。举个例子，你进入到浏览器中默认是中文输入法，进入 Vim 中默认是英文输入法。就不需要自己频繁切换输入法了。
 
+![26621732330717_ pic](https://github.com/user-attachments/assets/9919de3b-461d-4a7b-b7de-8a8ae49ed661)
+
 ## 安装方法
 
 从 [GitHub Releases](https://github.com/Jackiexiao/macvimswitch/releases) 下载并手动安装。
