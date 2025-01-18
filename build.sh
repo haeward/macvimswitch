@@ -17,7 +17,12 @@ mkdir -p dist/MacVimSwitch.app/Contents/{MacOS,Resources}
 # 构建 ARM64 版本
 echo "构建 ARM64 版本..."
 if ! swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-arm64 \
-  macvimswitch.swift \
+  inputsource.swift \
+  main.swift \
+  AppDelegate.swift \
+  StatusBarManager.swift \
+  InputMethodManager.swift \
+  LaunchManager.swift \
   -framework Cocoa \
   -framework Carbon \
   -target arm64-apple-macos11 \
@@ -33,7 +38,12 @@ fi
 # 构建 x86_64 版本
 echo "构建 x86_64 版本..."
 if ! swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-x86_64 \
-  macvimswitch.swift \
+  inputsource.swift \
+  main.swift \
+  AppDelegate.swift \
+  StatusBarManager.swift \
+  InputMethodManager.swift \
+  LaunchManager.swift \
   -framework Cocoa \
   -framework Carbon \
   -target x86_64-apple-macos11 \
