@@ -1,21 +1,64 @@
 #!/bin/bash
 
+# 检查 Swift 编译器是否可用
+if ! command -v swiftc &> /dev/null; then
+    echo "错误: 未找到 Swift 编译器。请确保已安装 Xcode 命令行工具。"
+    echo "可以通过运行以下命令安装："
+    echo "xcode-select --install"
+    exit 1
+fi
+
 # 清理旧的构建
 rm -rf dist
 
 # 创建目录结构
 mkdir -p dist/MacVimSwitch.app/Contents/{MacOS,Resources}
 
-# 构建通用二进制
-swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch macvimswitch.swift \
+# 构建 ARM64 版本
+echo "构建 ARM64 版本..."
+if ! swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-arm64 \
+  macvimswitch.swift \
   -framework Cocoa \
   -framework Carbon \
   -target arm64-apple-macos11 \
-  -target x86_64-apple-macos11 \
+  -sdk $(xcrun --show-sdk-path) \
   -O \
   -whole-module-optimization \
   -Xlinker -rpath \
-  -Xlinker @executable_path/../Frameworks
+  -Xlinker @executable_path/../Frameworks; then
+    echo "ARM64 构建失败。"
+    exit 1
+fi
+
+# 构建 x86_64 版本
+echo "构建 x86_64 版本..."
+if ! swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-x86_64 \
+  macvimswitch.swift \
+  -framework Cocoa \
+  -framework Carbon \
+  -target x86_64-apple-macos11 \
+  -sdk $(xcrun --show-sdk-path) \
+  -O \
+  -whole-module-optimization \
+  -Xlinker -rpath \
+  -Xlinker @executable_path/../Frameworks; then
+    echo "x86_64 构建失败。"
+    exit 1
+fi
+
+# 合并为通用二进制
+echo "合并为通用二进制..."
+if ! lipo -create \
+  dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-arm64 \
+  dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-x86_64 \
+  -output dist/MacVimSwitch.app/Contents/MacOS/macvimswitch; then
+    echo "合并二进制失败。"
+    exit 1
+fi
+
+# 清理临时文件
+rm dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-arm64
+rm dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-x86_64
 
 # 创建 Info.plist
 cat > dist/MacVimSwitch.app/Contents/Info.plist << EOL
@@ -83,27 +126,33 @@ EOL
 chmod +x dist/MacVimSwitch.app/Contents/MacOS/macvimswitch
 
 # 使用自签名
-codesign --force --deep --sign - --entitlements entitlements.plist dist/MacVimSwitch.app
+if ! codesign --force --deep --sign - --entitlements entitlements.plist dist/MacVimSwitch.app; then
+    echo "签名失败。请确保你的开发环境正确配置。"
+    exit 1
+fi
 
 # 创建 DMG（可选）
 if [ "$1" = "--create-dmg" ]; then
     # 创建临时挂载点
     mkdir -p /tmp/dmg
-    
+
     # 创建应用程序文件夹符号链接
     ln -s /Applications /tmp/dmg/Applications
-    
+
     # 复制应用
     cp -r dist/MacVimSwitch.app /tmp/dmg/
-    
+
     # 创建 DMG
-    hdiutil create -volname "MacVimSwitch" -srcfolder /tmp/dmg -ov -format UDZO MacVimSwitch.dmg
-    
+    if ! hdiutil create -volname "MacVimSwitch" -srcfolder /tmp/dmg -ov -format UDZO MacVimSwitch.dmg; then
+        echo "创建 DMG 失败。请确保你的开发环境正确配置。"
+        exit 1
+    fi
+
     # 清理
     rm -rf /tmp/dmg
-    
+
     echo "DMG created: MacVimSwitch.dmg"
 fi
 
-echo "Build complete! App is in dist/MacVimSwitch.app"
-echo "You can now run: open dist/MacVimSwitch.app"
+echo "构建成功完成！生成了通用二进制（Universal Binary）应用程序。"
+echo "该应用程序可以在 Intel 和 Apple Silicon Mac 上原生运行，无需 Rosetta。"
