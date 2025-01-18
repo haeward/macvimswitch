@@ -8,24 +8,29 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    
+
     steps:
     - uses: actions/checkout@v2
-    
+
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: latest-stable
-        
+
     - name: Build Universal App
       run: |
         # 创建目录结构
         mkdir -p dist/MacVimSwitch.app/Contents/{MacOS,Resources}
-        
+
         # 构建 ARM64 版本
         echo "构建 ARM64 版本..."
         swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-arm64 \
-          macvimswitch.swift \
+          inputsource.swift \
+          main.swift \
+          AppDelegate.swift \
+          StatusBarManager.swift \
+          InputMethodManager.swift \
+          LaunchManager.swift \
           -framework Cocoa \
           -framework Carbon \
           -target arm64-apple-macos11 \
@@ -38,7 +43,12 @@ jobs:
         # 构建 x86_64 版本
         echo "构建 x86_64 版本..."
         swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-x86_64 \
-          macvimswitch.swift \
+          inputsource.swift \
+          main.swift \
+          AppDelegate.swift \
+          StatusBarManager.swift \
+          InputMethodManager.swift \
+          LaunchManager.swift \
           -framework Cocoa \
           -framework Carbon \
           -target x86_64-apple-macos11 \
@@ -58,7 +68,7 @@ jobs:
         # 清理临时文件
         rm dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-arm64
         rm dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-x86_64
-        
+
         # 创建 Info.plist
         cat > dist/MacVimSwitch.app/Contents/Info.plist << EOL
         <?xml version="1.0" encoding="UTF-8"?>
@@ -96,7 +106,7 @@ jobs:
         </dict>
         </plist>
         EOL
-        
+
         # 创建 entitlements.plist
         cat > entitlements.plist << EOL
         <?xml version="1.0" encoding="UTF-8"?>
@@ -118,10 +128,10 @@ jobs:
         </dict>
         </plist>
         EOL
-        
+
         # 设置执行权限
         chmod +x dist/MacVimSwitch.app/Contents/MacOS/macvimswitch
-        
+
         # 使用自签名
         codesign --force --deep --sign - --entitlements entitlements.plist dist/MacVimSwitch.app
 
@@ -129,16 +139,16 @@ jobs:
       run: |
         # 创建临时挂载点
         mkdir -p /tmp/dmg
-        
+
         # 创建应用程序文件夹符号链接
         ln -s /Applications /tmp/dmg/Applications
-        
+
         # 复制应用
         cp -r dist/MacVimSwitch.app /tmp/dmg/
-        
+
         # 创建 DMG
         hdiutil create -volname "MacVimSwitch" -srcfolder /tmp/dmg -ov -format UDZO MacVimSwitch.dmg
-        
+
         # 清理
         rm -rf /tmp/dmg
 
@@ -173,19 +183,19 @@ jobs:
         files: MacVimSwitch.dmg
         body: |
           Universal Binary (支持 Intel 和 Apple Silicon Mac)
-          
+
           安装方法：
           1. 双击打开 DMG 文件
           2. 将 MacVimSwitch 拖入 Applications 文件夹
           3. 从 Applications 文件夹打开 MacVimSwitch
-          
+
           首次使用说明：
           1. 右键点击应用选择"打开"
           2. 点击"打开"确认运行
           3. 在系统偏好设置中授予必要权限
-          
+
           SHA256: ${{ env.DMG_SHA256 }}
-          
+
           You can verify the SHA256 checksum of the DMG file using:
           ```bash
           shasum -a 256 MacVimSwitch.dmg

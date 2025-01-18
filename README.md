@@ -29,6 +29,7 @@ Download from [GitHub Releases](https://github.com/Jackiexiao/macvimswitch/relea
    - Grant Accessibility permissions when prompted
    - Go to System Preferences → Security & Privacy → Privacy → Accessibility
    - Add and enable MacVimSwitch
+   - Restart the app
 
 2. Important first-time setup:
    - Disable the "Use Shift to switch between English and Chinese" option in your input method settings
