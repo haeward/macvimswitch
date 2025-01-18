@@ -42,6 +42,7 @@ Download from [GitHub Releases](https://github.com/Jackiexiao/macvimswitch/relea
      - View instructions
      - Select your preferred Chinese input method
      - Enable/Disable Shift key switching
+     - Select the applications that you want to enable `Esc` to switch input source, by default, vscode, terminal, obsidian, cursor, windsurf, warp are enabled.
      - Enable/Disable launch at login
      - Quit the application
 
@@ -95,7 +96,7 @@ cd macvimswitch
 3. Release
 ```
 Tag the release
-git tag v1.0.0
+git tag -a v1.0.0
 git push origin v1.0.0
 ```
 4. Formula
@@ -119,8 +120,13 @@ git push origin main
 
 To build and test locally:
 ```bash
-swiftc macvimswitch.swift -o macvimswitch
-./macvimswitch
+./build.sh
+# first, open MacVimSwitch, delete permissions
+open dist/MacVimSwitch.app
+# second, open MacVimSwitch, allow permissions
+open dist/MacVimSwitch.app
+# third, open MacVimSwitch, now it works
+open dist/MacVimSwitch.app
 ```
 
 Build for release
