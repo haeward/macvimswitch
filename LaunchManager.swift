@@ -3,7 +3,10 @@ import Cocoa
 class LaunchManager {
     static let shared = LaunchManager()
     
-    private init() {}
+    private init() {
+        // 初始化时同步开机启动状态到 UserPreferences
+        UserPreferences.shared.launchAtLogin = isLaunchAtLoginEnabled()
+    }
     
     func isLaunchAtLoginEnabled() -> Bool {
         if let loginItems = try? FileManager.default.contentsOfDirectory(atPath: "/Users/\(NSUserName())/Library/Application Support/com.apple.backgroundtaskmanagementagent/BackgroundItems.btm") {

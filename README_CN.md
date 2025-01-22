@@ -99,6 +99,9 @@ git push origin main
 本地构建和测试：
 ```bash
 ./build.sh
+pkill -f MacVimSwitch
+./dist/MacVimSwitch.app/Contents/MacOS/MacVimSwitch
+# 如果你使用 双击打开 dist/MacVimSwitch.app，你可能需要这样做
 # 打开第一次，辅助功能先把之前的 MacVimSwitch 删除，看起来好像必须得这么做
 open dist/MacVimSwitch.app
 # 打开第二次，启动辅助功能
