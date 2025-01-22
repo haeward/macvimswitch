@@ -30,6 +30,7 @@ jobs:
           AppDelegate.swift \
           StatusBarManager.swift \
           InputMethodManager.swift \
+          UserPreferences.swift \
           LaunchManager.swift \
           -framework Cocoa \
           -framework Carbon \
@@ -48,6 +49,7 @@ jobs:
           AppDelegate.swift \
           StatusBarManager.swift \
           InputMethodManager.swift \
+          UserPreferences.swift \
           LaunchManager.swift \
           -framework Cocoa \
           -framework Carbon \
