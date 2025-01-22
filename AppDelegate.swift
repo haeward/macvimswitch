@@ -3,7 +3,10 @@ import Cocoa
 class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
     let statusBarManager = StatusBarManager()
     // 存储允许的应用bundle identifiers
-    var allowedApps: Set<String> = []
+    var allowedApps: Set<String> {
+        get { UserPreferences.shared.allowedApps }
+        set { UserPreferences.shared.allowedApps = newValue }
+    }
     // 用于存储系统中的应用列表
     var systemApps: [(name: String, bundleId: String)] = []
 
@@ -17,10 +20,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         // 确保应用不会随终端退出
         ProcessInfo.processInfo.enableSuddenTermination()
         print("已启用突然终止")
-
-        // 加载默认配置
-        loadDefaultConfig()
-        print("已加载默认配置")
 
         // 加载系统应用列表
         loadSystemApps()
@@ -50,19 +49,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, KeyboardManagerDelegate {
         }
 
         print("应用程序初始化完成")
-    }
-
-    // 加载默认配置
-    private func loadDefaultConfig() {
-        allowedApps = Set([
-            "com.apple.Terminal",
-            "com.microsoft.VSCode",
-            "com.vim.MacVim",
-            "com.exafunction.windsurf",
-            "md.obsidian",
-            "dev.warp.Warp-Stable",
-            "com.todesktop.230313mzl4w4u92"
-        ])
     }
 
     // 加载系统应用列表

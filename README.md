@@ -121,6 +121,8 @@ git push origin main
 To build and test locally:
 ```bash
 ./build.sh
+pkill -f MacVimSwitch
+./dist/MacVimSwitch.app/Contents/MacOS/MacVimSwitch
 # first, open MacVimSwitch, delete permissions
 open dist/MacVimSwitch.app
 # second, open MacVimSwitch, allow permissions

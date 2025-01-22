@@ -46,7 +46,11 @@ class StatusBarManager {
 
         // 获取所有输入法并添加到子菜单
         if let inputMethods = InputMethodManager.shared.getAvailableInputMethods() {
+            print("当前保存的输入法: \(KeyboardManager.shared.lastInputSource ?? "nil")")
+            print("UserPreferences中的输入法: \(UserPreferences.shared.selectedInputMethod ?? "nil")")
+            
             for (sourceId, name) in inputMethods {
+                print("添加输入法菜单项: \(name) (\(sourceId))")
                 let item = NSMenuItem(
                     title: name,
                     action: #selector(selectInputMethod(_:)),
@@ -54,7 +58,9 @@ class StatusBarManager {
                 )
                 item.target = self
                 item.representedObject = sourceId
+                // 检查是否是当前选中的输入法
                 if sourceId == KeyboardManager.shared.lastInputSource {
+                    print("设置选中状态: \(name) (\(sourceId))")
                     item.state = .on
                 }
                 inputMethodMenu.addItem(item)
@@ -130,18 +136,21 @@ class StatusBarManager {
 
     @objc private func toggleShiftSwitch() {
         KeyboardManager.shared.useShiftSwitch = !KeyboardManager.shared.useShiftSwitch
+        UserPreferences.shared.useShiftSwitch = KeyboardManager.shared.useShiftSwitch
         updateStatusBarIcon()
         createAndShowMenu()
     }
 
     @objc private func selectInputMethod(_ sender: NSMenuItem) {
         guard let sourceId = sender.representedObject as? String else { return }
+        print("[StatusBarManager] 选择输入法: \(sourceId)")
         KeyboardManager.shared.setLastInputSource(sourceId)
-        createAndShowMenu()
+        createAndShowMenu()  // 重新创建菜单以更新选中状态
     }
 
     @objc private func toggleLaunchAtLogin() {
         LaunchManager.shared.toggleLaunchAtLogin()
+        UserPreferences.shared.launchAtLogin = LaunchManager.shared.isLaunchAtLoginEnabled()
         createAndShowMenu()
     }
 

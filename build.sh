@@ -22,6 +22,7 @@ if ! swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-arm64 \
   AppDelegate.swift \
   StatusBarManager.swift \
   InputMethodManager.swift \
+  UserPreferences.swift \
   LaunchManager.swift \
   -framework Cocoa \
   -framework Carbon \
@@ -43,6 +44,7 @@ if ! swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-x86_64 \
   AppDelegate.swift \
   StatusBarManager.swift \
   InputMethodManager.swift \
+  UserPreferences.swift \
   LaunchManager.swift \
   -framework Cocoa \
   -framework Carbon \

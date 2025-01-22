@@ -185,15 +185,27 @@ class KeyboardManager {
     weak var delegate: KeyboardManagerDelegate?  // 添加代理属性
     private var eventTap: CFMachPort?
     let abcInputSource = "com.apple.keylayout.ABC"
-    var useShiftSwitch: Bool = true {
-        didSet {
-            delegate?.keyboardManagerDidUpdateState()  // 移除日志，保留代理通知
+    var useShiftSwitch: Bool {
+        get { UserPreferences.shared.useShiftSwitch }
+        set {
+            UserPreferences.shared.useShiftSwitch = newValue
+            delegate?.keyboardManagerDidUpdateState()
         }
     }
     var lastShiftPressTime: TimeInterval = 0
 
     // 添加属性来跟踪上一个输入法
-    private(set) var lastInputSource: String?
+    private(set) var lastInputSource: String? {
+        get {
+            let value = UserPreferences.shared.selectedInputMethod
+            print("[KeyboardManager] 获取 lastInputSource: \(value ?? "nil")")
+            return value
+        }
+        set {
+            print("[KeyboardManager] 设置 lastInputSource: \(newValue ?? "nil")")
+            UserPreferences.shared.selectedInputMethod = newValue
+        }
+    }
     private var isShiftPressed = false
     private var lastKeyDownTime: TimeInterval = 0  // 修改变量名使其更明确
     private var isKeyDown = false  // 添加新变量跟踪是否有按键被按下
@@ -209,10 +221,34 @@ class KeyboardManager {
     private var hasOtherKeysDuringShift = false       // 记录 Shift 按下期间是否有其他键按下
 
     private init() {
-        // 移除通知相关的初始化
+        // 从 UserPreferences 加载配置
+        useShiftSwitch = UserPreferences.shared.useShiftSwitch
+        lastInputSource = UserPreferences.shared.selectedInputMethod
+    }
+
+    func start() {
+        InputSourceManager.initialize()
+        initializeInputSources()
+        setupEventTap()
+        
+        // 检查当前输入法，如果是 ABC 且有保存的上一个输入法，则更新 lastInputSource
+        let currentSource = InputSourceManager.getCurrentSource()
+        if currentSource.id == abcInputSource,
+           let savedSource = UserPreferences.shared.selectedInputMethod {
+            lastInputSource = savedSource
+        } else if currentSource.id != abcInputSource {
+            // 如果当前不是 ABC，就保存当前输入法
+            lastInputSource = currentSource.id
+            UserPreferences.shared.selectedInputMethod = currentSource.id
+        }
     }
 
     private func initializeInputSources() {
+        // 如果已经有保存的输入法设置，就不需要初始化
+        if UserPreferences.shared.selectedInputMethod != nil {
+            return
+        }
+
         // 获取所有可用的输入源
         guard let inputSources = TISCreateInputSourceList(nil, true)?.takeRetainedValue() as? [TISInputSource] else {
             print("Failed to get input sources")
@@ -228,7 +264,7 @@ class KeyboardManager {
             return category == kTISCategoryKeyboardInputSource as String
         }
 
-        // 找到第一个 ABC 的中文输入法
+        // 找到第一个非 ABC 的中文输入法
         for source in keyboardSources {
             guard let sourceIdRef = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
                   let sourceId = (Unmanaged<CFString>.fromOpaque(sourceIdRef).takeUnretainedValue() as NSString) as String? else {
@@ -245,13 +281,7 @@ class KeyboardManager {
         print("Initialized with input source: \(lastInputSource ?? "none")")
     }
 
-    func start() {
-        InputSourceManager.initialize()
-        initializeInputSources()  // 添加初始化调用
-        setupEventTap()
-    }
-
-    private func setupEventTap() {
+    func setupEventTap() {
         // 修改事件掩码，添加 keyUp 事件的监听
         let eventMask = (1 << CGEventType.keyDown.rawValue) |
                        (1 << CGEventType.keyUp.rawValue) |
@@ -309,28 +339,22 @@ class KeyboardManager {
 
     func switchInputMethod() {
         let currentSource = InputSourceManager.getCurrentSource()
-        print("当前输入法: \(currentSource.id)")
-        print("上一个输入法: \(lastInputSource ?? "nil")")
-
-        if let lastSource = lastInputSource,
-           let targetSource = InputSourceManager.getInputSource(name: lastSource) {
-            if currentSource.id == abcInputSource {
-                // 从ABC切换到上一个输入法
+        
+        if currentSource.id == abcInputSource {
+            // 从 ABC 切换到保存的输入法
+            if let lastSource = lastInputSource,
+               let targetSource = InputSourceManager.getInputSource(name: lastSource) {
                 targetSource.select()
-                print("切换到上一个输入法: \(lastSource)")
-            } else {
-                // 从其他输入法切换到ABC
-                lastInputSource = currentSource.id
-                print("保存当前输入法: \(currentSource.id)")
-                if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
-                    abcSource.select()
-                }
             }
         } else {
-            // 如果没有lastInputSource，则更新它
-            updateLastInputSource(currentSource)
+            // 从其他输入法切换到 ABC
+            lastInputSource = currentSource.id
+            UserPreferences.shared.selectedInputMethod = currentSource.id
+            if let abcSource = InputSourceManager.getInputSource(name: abcInputSource) {
+                abcSource.select()
+            }
         }
-
+        
         delegate?.keyboardManagerDidUpdateState()
     }
 
@@ -417,22 +441,12 @@ class KeyboardManager {
     }
 
     func setLastInputSource(_ sourceId: String) {
+        lastInputSource = sourceId
         if let source = InputSourceManager.getInputSource(name: sourceId) {
-            // 直接切到选择的输入法
-            if source.isCJKV {
-                switchToCJKV(source)
-            } else {
-                TISSelectInputSource(source.tisInputSource)
-                usleep(InputSourceManager.uSeconds)
-            }
-
-            // 更新 lastInputSource
-            lastInputSource = sourceId
-            print("Set last input source to: \(sourceId)")
-
-            // 通知状态更新
-            delegate?.keyboardManagerDidUpdateState()
+            source.select()
         }
+        // 保存到 UserPreferences
+        UserPreferences.shared.selectedInputMethod = sourceId
     }
 
     // 添加新的辅助方法来处理 CJKV 输入法切换
