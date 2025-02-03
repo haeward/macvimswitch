@@ -1,5 +1,5 @@
 # MacVimSwitch
-
+这个
 [English](README.md) | [中文说明](README_CN.md)
 
 MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常需要切换中文输入法的用户设计。感谢 [macism](https://github.com/laishulu/macism) 提供的输入法切换方案。
@@ -118,6 +118,15 @@ open dist/MacVimSwitch.app
 ./build.sh --create-dmg
 tccutil reset All com.jackiexiao.macvimswitch # Reset permissions
 # open MacVimSwitch.dmg
+```
+
+Github Actions 工作流会在 git push --tag v1.0.0 时自动构建
+
+如果想要在本地调试 Github Actions 工作流，以 mac 为例，可以使用
+```
+brew install act
+act -l
+act push -e .github/workflows/push.event.json --container-architecture linux/amd64
 ```
 
 ### 贡献代码
