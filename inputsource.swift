@@ -230,7 +230,7 @@ class KeyboardManager {
         InputSourceManager.initialize()
         initializeInputSources()
         setupEventTap()
-        
+
         // 检查当前输入法，如果是 ABC 且有保存的上一个输入法，则更新 lastInputSource
         let currentSource = InputSourceManager.getCurrentSource()
         if currentSource.id == abcInputSource,
@@ -339,7 +339,7 @@ class KeyboardManager {
 
     func switchInputMethod() {
         let currentSource = InputSourceManager.getCurrentSource()
-        
+
         if currentSource.id == abcInputSource {
             // 从 ABC 切换到保存的输入法
             if let lastSource = lastInputSource,
@@ -354,7 +354,7 @@ class KeyboardManager {
                 abcSource.select()
             }
         }
-        
+
         delegate?.keyboardManagerDidUpdateState()
     }
 
@@ -381,10 +381,42 @@ class KeyboardManager {
     }
 
     // 优化事件处理逻辑
+    private var lastFlags: CGEventFlags = CGEventFlags(rawValue: 0)
+
     func handleModifierFlags(_ flags: CGEventFlags) {
         let currentTime = Date().timeIntervalSince1970
+
+        // 打印当前修饰键的原始值，用于调试
+        // print("修饰键 flags 原始值: 0x\(String(flags.rawValue, radix: 16))（\(flags.rawValue))")
+
+        // 只有 Shift 键的 flags 值（0x20102 = 131330）
         let isShiftKey = flags.rawValue == 0x20102
+        // Shift 键释放的 flags 值（0x100 = 256）
         let isShiftRelease = flags.rawValue == 0x100
+
+        // 检查是否有其他修饰键（当前或之前的状态）
+        let hasOtherModifiers = flags.contains(.maskCommand) || flags.contains(.maskControl) ||
+                                flags.contains(.maskAlternate) || flags.contains(.maskSecondaryFn) ||
+                                lastFlags.contains(.maskCommand) || lastFlags.contains(.maskControl) ||
+                                lastFlags.contains(.maskAlternate) || lastFlags.contains(.maskSecondaryFn)
+
+        // 打印具体的修饰键状态
+        if hasOtherModifiers {
+            var modifiers: [String] = []
+            if flags.contains(.maskCommand) || lastFlags.contains(.maskCommand) { modifiers.append("Command") }
+            if flags.contains(.maskControl) || lastFlags.contains(.maskControl) { modifiers.append("Control") }
+            if flags.contains(.maskAlternate) || lastFlags.contains(.maskAlternate) { modifiers.append("Option") }
+            if flags.contains(.maskSecondaryFn) || lastFlags.contains(.maskSecondaryFn) { modifiers.append("Fn") }
+            // print("检测到其他修饰键: \(modifiers.joined(separator: ", "))，忽略此次事件")
+
+            isShiftPressed = false
+            hasOtherKeysDuringShift = true
+            lastFlags = flags
+            return
+        }
+
+        // 更新上一次的修饰键状态
+        lastFlags = flags
 
         if isShiftKey {
             handleShiftPress(currentTime)
@@ -404,6 +436,7 @@ class KeyboardManager {
     private func handleShiftRelease(_ time: TimeInterval) {
         if isShiftPressed {
             let pressDuration = time - shiftPressStartTime
+            // print("Shift 释放 - hasOtherKeysDuringShift: \(hasOtherKeysDuringShift), pressDuration: \(pressDuration)")
             if useShiftSwitch && !hasOtherKeysDuringShift && pressDuration < 0.5 {
                 switchInputMethod()
             }
