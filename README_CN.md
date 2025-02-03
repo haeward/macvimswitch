@@ -1,5 +1,6 @@
 # MacVimSwitch
-这个
+> 这个项目的代码除了 [macism](https://github.com/laishulu/macism)  的部分，其他完全由 AI 生成，我本人不会 swift
+
 [English](README.md) | [中文说明](README_CN.md)
 
 MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常需要切换中文输入法的用户设计。感谢 [macism](https://github.com/laishulu/macism) 提供的输入法切换方案。
