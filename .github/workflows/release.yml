@@ -22,6 +22,9 @@ jobs:
         # 创建目录结构
         mkdir -p dist/MacVimSwitch.app/Contents/{MacOS,Resources}
 
+        # 复制 Info.plist
+        cp Info.plist dist/MacVimSwitch.app/Contents/
+
         # 构建 ARM64 版本
         echo "构建 ARM64 版本..."
         swiftc -o dist/MacVimSwitch.app/Contents/MacOS/macvimswitch-arm64 \
@@ -175,6 +178,12 @@ jobs:
         asset_name: MacVimSwitch.dmg
         asset_content_type: application/x-apple-diskimage
 
+    - name: Get Tag Message
+      id: tag
+      run: |
+        # 获取当前 tag 的注释内容
+        echo "message=$(git tag -l --format='%(contents)' ${{ github.ref_name }})" >> $GITHUB_OUTPUT
+
     - name: Calculate SHA256
       run: |
         echo "DMG_SHA256=$(shasum -a 256 MacVimSwitch.dmg | cut -d ' ' -f 1)" >> $GITHUB_ENV
@@ -184,6 +193,8 @@ jobs:
       with:
         files: MacVimSwitch.dmg
         body: |
+          ${{ steps.tag.outputs.message }}
+
           Universal Binary (支持 Intel 和 Apple Silicon Mac)
 
           安装方法：
@@ -191,10 +202,8 @@ jobs:
           2. 将 MacVimSwitch 拖入 Applications 文件夹
           3. 从 Applications 文件夹打开 MacVimSwitch
 
-          首次使用说明：
-          1. 右键点击应用选择"打开"
-          2. 点击"打开"确认运行
-          3. 在系统偏好设置中授予必要权限
+          使用说明：
+          1. 在系统偏好设置中授予必要权限（如果你从 v0.6.3 之前老版本升级到新版本，你需要先删除原来的应用权限，再重新授权）
 
           SHA256: ${{ env.DMG_SHA256 }}
 

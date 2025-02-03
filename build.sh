@@ -13,6 +13,8 @@ rm -rf dist
 
 # 创建目录结构
 mkdir -p dist/MacVimSwitch.app/Contents/{MacOS,Resources}
+# 复制 Info.plist
+cp Info.plist dist/MacVimSwitch.app/Contents/
 
 # 构建 ARM64 版本
 echo "构建 ARM64 版本..."
