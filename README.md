@@ -3,20 +3,25 @@
 
 [English](README_EN.md) | [中文说明](README.md)
 
-MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常需要切换中文输入法的用户设计。感谢 [macism](https://github.com/laishulu/macism) 提供的输入法切换方案。
+MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常需要切换中文输入法的用户设计。避免在按 Esc 切换到 Normal 模式时，输入法还停留在中文输入法的尴尬。
 
 ## 功能特点
-
-- 按 ESC 键时自动切换到 ABC 英文输入法，可以设置只在部分应用中生效（如 Vscode、Terminal、Obsidian、Cursor）
-- Shift 键切换 ABC 英文输入法 和 中文/日文/韩文/越南文输入法（可以是任何中文输入法， 如搜狗、讯飞、微信输入法等）
-  - 重要提示：使用前请先关闭输入法中的"使用 Shift 切换中英文"选项
-  - 如需关闭可在状态栏菜单中设置
-- 后台运行，状态栏显示图标
+- 一次安装，解决多个软件 Vim 中英文切换问题，只需非常简单的配置。这是相比其他方案最大的优势。
+- 按 ESC 键时自动切换到 ABC 英文输入法，可以设置只在指定的多个应用中生效（如 Vscode、Terminal、Obsidian、Cursor、Xcode）
+- Shift 键切换 ABC 英文输入法 和 中文/日文/韩文/越南文输入法
+  - 可以是任何中文输入法， 如搜狗、讯飞、微信输入法等
+  - 使用前建议关闭输入法中的"使用 Shift 切换中英文"选项
 - 温馨提示：如果你不想使用 Shift 键切换输入法，在 Mac 上，CapsLock 短按可以切换输入法，长按才是锁定大写
-- 系统登录时自动启动（可在菜单栏中关闭）
 - 推荐：配合上 [inputsource.pro](https://inputsource.pro/)这类能设置每个应用默认输入法的程序使用体验更佳。举个例子，你进入到浏览器中默认是中文输入法，进入 Vim 中默认是英文输入法。就不需要自己频繁切换输入法了。
+- 介绍视频：https://www.bilibili.com/video/BV1DRwTeKEcx/
 
 <img width="383" alt="Image" src="https://github.com/user-attachments/assets/0eb4b7a0-c229-4334-b1ff-cd78dd477196" />
+
+## 已知问题
+现在从正常模式切回插入模式，无法自动切换回之前的输入法，默认是英文。见 [issue](https://github.com/Jackiexiao/macvimswitch/issues/6)
+
+我个人的解决方法是：按一下 shift 切换回中文，习惯了也还行，因为写代码的时候进入插入模式不切换为中文也挺常见。
+
 
 ## 安装方法
 
@@ -33,9 +38,11 @@ MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常�
 
 2. 首次使用重要设置：
    - 关闭输入法中的"使用 Shift 切换中英文"选项，避免冲突
-   - 可以在状态栏菜单中选择您偏好的中文输入法
-   - 您必须为“选择上一个输入源”启用 MacOS 键盘快捷键，该快捷键可在“首选项 - > 键盘 - > 快捷键 - > InputSource”中找到。
-   - 快捷方式可以是您想要的任何内容，macism 将从该条目中读取快捷方式并在需要时通过仿真触发它。只是为了确保您已经启用了快捷方式。
+   - 在状态栏菜单中选择您偏好的中文输入法，此时就可以正常切换了。
+   - 如果切换无法生效
+     - 手动鼠标点击切换一次输入法
+     - 确认您是否为“选择上一个输入源”启用 MacOS 键盘快捷键（默认是开启的），该快捷键可在“首选项 - > 键盘 - > 快捷键 - > InputSource”中找到。
+     - 快捷方式可以是您想要的任何内容，macism 将从该条目中读取快捷方式并在需要时通过仿真触发它。只是为了确保您已经启用了快捷方式。
 
 3. 菜单栏选项：
    - 点击状态栏的键盘图标可以：
@@ -45,6 +52,29 @@ MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常�
      - 选择 Esc 生效的应用（可多选，默认在 Terminal、VSCode、MacVim、windsurf、obsidian、warp 中生效）
      - 开启/关闭开机自动启动
      - 退出应用程序
+
+## 感谢支持
+![赞赏码](public/tip-qr-code.jpg)
+
+## MacVimSwitch 的优点
+
+MacVimSwitch 相比其他输入法切换方案有以下优势：
+
+1. 通用兼容性
+   - 可在所有应用程序中使用（VSCode、终端、Obsidian、Cursor、Warp、Windsurf 等）
+   - 无需针对不同应用进行配置
+   - 不需要为不同编辑器安装插件
+
+2. 方便设置
+   - 可以设置只在某些应用中生效
+   - 可以便捷的设置使用哪种中文输入法（搜狗、讯飞、微信输入法等）
+
+3. 其他解决方案
+- [这篇文章](https://jdhao.github.io/2021/02/25/nvim_ime_mode_auto_switch/) 总结了多种 Vim 中英文切换软件的用法。总的来说，最大的痛点是这些插件需要额外的配置，无法在所有应用中使用。
+- [smartim](https://github.com/ybian/smartim) 适用于 mac 支持插件安装的 vim，无法在多个软件中使用。
+- [imselect](https://github.com/daipeihust/im-select) 命令行切换输入法，为了在多个软件中使用，每个软件需要做额外的配置，有时候延迟高
+- [vim-xkbswitch](https://github.com/lyokha/vim-xkbswitch) Vim 插件，为了在多个软件中使用，每个软件需要做额外的配置
+- karabiner：自定义快捷键，可以多个软件生效，但延迟较高，配置麻烦
 
 ## 开发者指南
 
@@ -139,40 +169,6 @@ act push -e .github/workflows/push.event.json --container-architecture linux/amd
 ## 许可证
 
 本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
-
-## 为什么选择 MacVimSwitch？
-
-MacVimSwitch 相比其他输入法切换方案有以下优势：
-
-1. 通用兼容性
-   - 可在所有应用程序中使用（VSCode、终端、Obsidian、Cursor、Warp、Windsurf 等）
-   - 无需针对不同应用进行配置
-   - 不需要为不同编辑器安装插件
-
-2. 输入法无关性
-   - 支持任何中文输入法
-   - 兼容搜狗、讯飞、微信输入法等主流输入法
-   - 可以方便地在不同输入法间切换
-
-3. 灵活的切换选项
-   - 使用 Shift 键快速切换（默认开启）
-   - 或使用 CapsLock（macOS 内置功能）
-   - ESC 键始终切换到英文（对 Vim 用户很友好）
-
-### 输入法切换选项
-
-1. 使用 Shift 键（默认方式）
-   - 快速便捷
-   - 类似 CapsLock 的行为
-   - 可根据需要关闭
-
-2. 使用 CapsLock（macOS 内置功能）
-   - 系统级功能
-   - 短按切换输入法
-   - 长按锁定大写
-   - 可与 MacVimSwitch 同时使用
-
-选择最适合您工作流程的方式！
 
 # 感谢
 

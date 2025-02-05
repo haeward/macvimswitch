@@ -18,6 +18,10 @@ MacVimSwitch is a utility for macOS that automatically switches input sources, d
 
 <img width="383" alt="Image" src="https://github.com/user-attachments/assets/0eb4b7a0-c229-4334-b1ff-cd78dd477196" />
 
+## Known issue
+When switching back to insert mode from normal mode, it cannot automatically switch back to the previous input method - it defaults to English. See [issue](https://github.com/Jackiexiao/macvimswitch/issues/6)
+
+My personal solution is to press shift to switch back to Chinese. After getting used to it, it works fine, especially since it's quite common to stay in English input method when entering insert mode for coding.
 
 ## Installation
 
