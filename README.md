@@ -1,4 +1,5 @@
 # MacVimSwitch
+
 > 这个项目的代码除了 [macism](https://github.com/laishulu/macism)  的部分，其他完全由 AI 生成，我本人不会 swift
 
 [English](README_EN.md) | [中文说明](README.md)
@@ -6,6 +7,7 @@
 MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常需要切换中文输入法的用户设计。避免在按 Esc 切换到 Normal 模式时，输入法还停留在中文输入法的尴尬。
 
 ## 功能特点
+
 - 一次安装，解决多个软件 Vim 中英文切换问题，只需非常简单的配置。这是相比其他方案最大的优势。
 - 按 ESC 键时自动切换到 ABC 英文输入法，可以设置只在指定的多个应用中生效（如 Vscode、Terminal、Obsidian、Cursor、Xcode）
 - Shift 键切换 ABC 英文输入法 和 中文/日文/韩文/越南文输入法
@@ -18,14 +20,23 @@ MacVimSwitch 是一个 macOS 输入法切换工具，专为 Vim 用户和经常�
 <img width="383" alt="Image" src="https://github.com/user-attachments/assets/0eb4b7a0-c229-4334-b1ff-cd78dd477196" />
 
 ## 已知问题
+
 现在从正常模式切回插入模式，无法自动切换回之前的输入法，默认是英文。见 [issue](https://github.com/Jackiexiao/macvimswitch/issues/6)
 
 我个人的解决方法是：按一下 shift 切换回中文，习惯了也还行，因为写代码的时候进入插入模式不切换为中文也挺常见。
 
-
 ## 安装方法
 
+### 手动安装
+
 从 [GitHub Releases](https://github.com/Jackiexiao/macvimswitch/releases) 下载并手动安装。
+
+### Homebrew 安装
+
+```shell
+brew tap Jackiexiao/tap
+brew install --cask macvimswitch
+```
 
 ## 使用方法
 
