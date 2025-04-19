@@ -64,9 +64,6 @@ brew install --cask macvimswitch
      - 开启/关闭开机自动启动
      - 退出应用程序
 
-## 感谢支持
-![赞赏码](public/tip-qr-code.jpg)
-
 ## MacVimSwitch 的优点
 
 MacVimSwitch 相比其他输入法切换方案有以下优势：
